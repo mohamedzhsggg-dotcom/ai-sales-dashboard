@@ -5,9 +5,9 @@ from app.core.context import ensure_tenant, tenant_query
 from app.core.rbac import require_permission
 from app.core.security import get_current_user
 from app.database import get_db
-from app.models import InventoryEvent, Product, User
+from app.models import Product, User
 from app.schemas import InventoryItem, InventorySummary, ProductOut, StockUpdate
-from app.services.writeback import WritebackService
+from app.services.stock import StockService
 
 router = APIRouter(prefix="/inventory", tags=["inventory"])
 
@@ -56,17 +56,9 @@ def update_stock(
     if not ensure_tenant(product, user.tenant_id):
         raise HTTPException(status_code=404, detail="Product not found")
 
-    old_stock = product.stock or 0
-    wb = WritebackService(db, user.tenant_id)
-    wb.set_stock(product, payload.stock, actor_id=user.id, reason="manual")
-
-    db.add(InventoryEvent(
-        tenant_id=user.tenant_id,
-        product_id=product.id,
-        delta=payload.stock - old_stock,
-        reason="manual",
-        actor=user.id,
-    ))
+    StockService(db, user.tenant_id).set_manual(
+        product_id=product.id, new_stock=payload.stock, reason="manual", actor_id=user.id
+    )
     db.commit()
     db.refresh(product)
     return ProductOut.model_validate(product)

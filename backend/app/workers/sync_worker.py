@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.database import SessionLocal
-from app.models import Customer, Order, Product, SyncRun, Tenant
+from app.models import Customer, Order, PostProductMapping, Product, SyncRun, Tenant
 from app.services.sheets import SheetsClient, sheets_rows_to_dicts
 
 logger = logging.getLogger(__name__)
@@ -195,7 +195,25 @@ class SyncWorker:
             if rec.get("fb_post_id") or rec.get("ig_post_id"):
                 mapping[rec.get("fb_post_id")] = rec.get("product_name")
                 mapping[rec.get("ig_post_id")] = rec.get("product_name")
-        # Store mapping on tenant config for the comment path to use
+        # Store the mapping in PostgreSQL (source of truth). The legacy n8n
+        # comment path keeps reading it via the tenant config cache below.
+        for fb_id, product_name in mapping.items():
+            existing = (
+                db.query(PostProductMapping)
+                .filter(PostProductMapping.tenant_id == tenant.id, PostProductMapping.fb_post_id == fb_id)
+                .first()
+            )
+            if existing is None:
+                existing = PostProductMapping(
+                    tenant_id=tenant.id,
+                    fb_post_id=fb_id,
+                    product_name=product_name,
+                )
+                db.add(existing)
+            elif existing.product_name != product_name:
+                existing.product_name = product_name
+        db.flush()
+        # Legacy mirror for the current n8n comment path (removable with Sheets).
         tenant.config = {**(tenant.config or {}), "post_product_map": mapping}
         db.commit()
         return len(mapping)

@@ -19,11 +19,13 @@ TENANT_SCOPED_MODELS = (
     "SheetConfig",
     "Customer",
     "Product",
+    "ProductVariant",
     "Order",
     "OrderStatusHistory",
     "InventoryEvent",
     "AuditLog",
     "SyncRun",
+    "PostProductMapping",
 )
 
 

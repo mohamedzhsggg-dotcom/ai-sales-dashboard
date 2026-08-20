@@ -86,16 +86,43 @@ class Product(Base):
     tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False, index=True)
     sheet_row = Column(Integer)
     name = Column(String(255), index=True)
+    type = Column(String(20), default="simple", index=True)  # simple | variable
+    sku = Column(String(100), index=True)
+    description = Column(Text)
+    status = Column(String(20), default="active", index=True)  # active | archived
     price = Column(Integer)
     sizes = Column(JSONB, nullable=False, server_default="[]")
     colors = Column(JSONB, nullable=False, server_default="[]")
     image_url = Column(Text)
     stock = Column(Integer, default=0)
+    low_stock_threshold = Column(Integer, default=5)
+    is_dashboard_managed = Column(Boolean, default=False, index=True)
     fb_post_id = Column(String(100))
     ig_post_id = Column(String(100))
     synced_hash = Column(String(64))
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    variants = relationship(
+        "ProductVariant", back_populates="product", cascade="all, delete-orphan"
+    )
+
+
+class ProductVariant(Base):
+    __tablename__ = "product_variants"
+
+    id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False, index=True)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False, index=True)
+    sku = Column(String(100), index=True)
+    options = Column(JSONB, nullable=False, server_default="{}")
+    price = Column(Integer)
+    stock = Column(Integer, default=0)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    product = relationship("Product", back_populates="variants")
 
 
 class Order(Base):
@@ -105,6 +132,7 @@ class Order(Base):
     tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False, index=True)
     order_id = Column(String(100), index=True)
     customer_id = Column(Integer, ForeignKey("customers.id"), index=True)
+    product_id = Column(Integer, ForeignKey("products.id"), index=True)
     phone = Column(String(50), index=True)
     name = Column(String(255))
     wilaya = Column(String(100))
@@ -145,10 +173,14 @@ class InventoryEvent(Base):
     id = Column(Integer, primary_key=True)
     tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False, index=True)
     product_id = Column(Integer, ForeignKey("products.id"), nullable=False, index=True)
+    product_variant_id = Column(Integer, ForeignKey("product_variants.id"), nullable=True, index=True)
     delta = Column(Integer, nullable=False)
-    reason = Column(String(50))  # order_confirmed | manual | restock
+    reason = Column(String(50))  # initial|restock|manual|adjustment|correction|order_confirmed|order_cancelled|order_returned|stock_take
     order_id = Column(Integer, ForeignKey("orders.id"))
     actor = Column(Integer, ForeignKey("users.id"))
+    reference = Column(String(255))
+    data = Column(JSONB)
+    qty_after = Column(Integer)
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
@@ -176,6 +208,19 @@ class SyncRun(Base):
     finished_at = Column(DateTime)
     rows_processed = Column(Integer, default=0)
     status = Column(String(50), default="running")
+
+
+class PostProductMapping(Base):
+    __tablename__ = "post_product_mappings"
+
+    id = Column(Integer, primary_key=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False, index=True)
+    fb_post_id = Column(String(100), index=True)
+    ig_post_id = Column(String(100), index=True)
+    product_name = Column(String(255))
+    synced_hash = Column(String(64))
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
 class IdempotencyKey(Base):

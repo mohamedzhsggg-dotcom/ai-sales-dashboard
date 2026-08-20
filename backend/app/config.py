@@ -49,6 +49,31 @@ class Settings(BaseSettings):
     SYNC_PRODUCTS_INTERVAL_SECONDS: int = 60
     RECONCILE_INTERVAL_SECONDS: int = 300
 
+    # Legacy Google Sheets compatibility (temporary; PostgreSQL is the source of truth)
+    # When False, the legacy adapter is fully inert: zero sheet I/O, all features
+    # operate on PostgreSQL alone.
+    SHEETS_COMPAT_MODE: bool = True
+
+    # Storage (S3-compatible object storage; local fallback for development)
+    STORAGE_BACKEND: str = "local"
+    STORAGE_LOCAL_DIR: str = "storage/media"
+    S3_ENDPOINT: str = ""
+    S3_BUCKET: str = ""
+    S3_ACCESS_KEY: str = ""
+    S3_SECRET_KEY: str = ""
+    S3_REGION: str = ""
+    S3_PUBLIC_BASE_URL: str = ""
+
+    # Couriers / tracking
+    TRACKING_POLL_INTERVAL_SECONDS: int = 300
+    TRACKING_STALE_MINUTES: int = 30
+    DEFAULT_FROM_WILAYA: str = "Alger"
+    YALIDINE_API_BASE_URL: str = "https://api.yalidine.app/v1"
+
+    # Feature toggles
+    RETURNS_ENABLED: bool = True
+    SHIPMENTS_ENABLED: bool = True
+
 
 @lru_cache
 def get_settings() -> Settings:

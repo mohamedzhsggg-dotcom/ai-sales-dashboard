@@ -1,14 +1,17 @@
 from datetime import datetime, timezone
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.core.context import ensure_tenant, tenant_query
+from app.core.events import ORDER_STATUS_CHANGED, ORDER_CONFIRMED, bus
 from app.core.rbac import require_permission
 from app.core.security import get_current_user
 from app.database import get_db
-from app.models import AuditLog, InventoryEvent, Order, OrderStatusHistory, User
+from app.models import AuditLog, Order, OrderStatusHistory, Product, User
 from app.schemas import (
     ConfirmOrderResponse,
     OrderDetail,
@@ -16,13 +19,25 @@ from app.schemas import (
     OrderOut,
     OrderStatusUpdate,
 )
-from app.services.writeback import WritebackService
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/orders", tags=["orders"])
 
 
 def _order_to_out(order: Order) -> OrderOut:
     return OrderOut.model_validate(order)
+
+
+def _resolve_product_id(db: Session, tenant_id: int, order: Order) -> int | None:
+    if order.product_id:
+        return order.product_id
+    if order.product:
+        prod = db.query(Product).filter(
+            Product.tenant_id == tenant_id, Product.name == order.product
+        ).first()
+        return prod.id if prod else None
+    return None
 
 
 @router.get("", response_model=OrderListResponse)
@@ -96,13 +111,79 @@ def confirm_order(
     if order.status != "new":
         raise HTTPException(status_code=409, detail=f"Cannot confirm order in status '{order.status}'")
 
-    wb = WritebackService(db, user.tenant_id)
-    result = wb.confirm_order(order, actor_id=user.id)
-    if result is None:
-        raise HTTPException(status_code=409, detail="Insufficient stock to confirm this order")
+    items = [{"product_id": _resolve_product_id(db, user.tenant_id, order), "quantity": order.quantity or 1}]
+    if items[0]["product_id"] is None:
+        # Product not in the catalog: confirm without stock deduction (legacy behavior).
+        order.status = "confirmed"
+        db.add(OrderStatusHistory(
+            order_id=order.id, from_status="new", to_status="confirmed", changed_by=user.id
+        ))
+        db.add(AuditLog(
+            tenant_id=user.tenant_id,
+            actor=user.id,
+            action="order.confirm",
+            entity_type="order",
+            entity_id=str(order.order_id or order.id),
+            payload={"quantity": order.quantity or 1, "stock_after": 0, "note": "product not in catalog"},
+        ))
+        db.commit()
+        db.refresh(order)
+        bus.publish(ORDER_STATUS_CHANGED, {
+            "tenant_id": user.tenant_id, "order_id": order.id, "status": "confirmed",
+        })
+        return ConfirmOrderResponse(order=_order_to_out(order), stock_after=0, message="Order confirmed")
+
+    try:
+        from app.services.legacy.guard import legacy_confirm_guard
+
+        legacy_confirm_guard(db, user.tenant_id, items)
+    except Exception as exc:
+        from app.services.stock import InsufficientStock
+
+        if isinstance(exc, InsufficientStock):
+            raise HTTPException(status_code=409, detail="Insufficient stock to confirm this order") from exc
+        # Sheet unavailable in compat mode: fall back to PostgreSQL stock rather
+        # than blocking confirm; the reconciler will repair the mirror cell.
+        logger.warning("Legacy confirm guard skipped (sheet unavailable): %s", exc)
+
+    from app.services.stock import InsufficientStock, StockService
+
+    stock_service = StockService(db, user.tenant_id)
+    try:
+        stock_after = stock_service.deduct(
+            product_id=items[0]["product_id"],
+            quantity=items[0]["quantity"],
+            reason="order_confirmed",
+            order_id=order.id,
+            actor_id=user.id,
+        )
+    except InsufficientStock as exc:
+        raise HTTPException(status_code=409, detail="Insufficient stock to confirm this order") from exc
+
+    order.status = "confirmed"
+    db.add(OrderStatusHistory(
+        order_id=order.id, from_status="new", to_status="confirmed", changed_by=user.id
+    ))
+    db.add(AuditLog(
+        tenant_id=user.tenant_id,
+        actor=user.id,
+        action="order.confirm",
+        entity_type="order",
+        entity_id=str(order.order_id or order.id),
+        payload={"quantity": order.quantity or 1, "stock_after": stock_after},
+    ))
+    db.commit()
+    db.refresh(order)
+
+    bus.publish(ORDER_STATUS_CHANGED, {
+        "tenant_id": user.tenant_id, "order_id": order.id, "status": "confirmed",
+    })
+    bus.publish(ORDER_CONFIRMED, {
+        "tenant_id": user.tenant_id, "order_id": order.id,
+    })
 
     order_out = _order_to_out(order)
-    return ConfirmOrderResponse(order=order_out, stock_after=result, message="Order confirmed")
+    return ConfirmOrderResponse(order=order_out, stock_after=stock_after, message="Order confirmed")
 
 
 @router.patch("/{order_id}/status", response_model=OrderOut)
@@ -134,4 +215,7 @@ def update_status(
     ))
     db.commit()
     db.refresh(order)
+    bus.publish(ORDER_STATUS_CHANGED, {
+        "tenant_id": user.tenant_id, "order_id": order.id, "status": payload.status,
+    })
     return _order_to_out(order)

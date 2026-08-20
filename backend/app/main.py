@@ -19,6 +19,12 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 init_sentry(settings.SENTRY_DSN)
 
+# Legacy Google Sheets compatibility subscriber (removable with the legacy
+# layer). When SHEETS_COMPAT_MODE is False this is a no-op on every event.
+from app.services.legacy.subscriber import register_legacy_subscribers
+
+register_legacy_subscribers()
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

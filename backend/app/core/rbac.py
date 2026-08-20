@@ -20,15 +20,28 @@ PERMISSIONS = frozenset(
         "orders.read",
         "orders.confirm",
         "orders.update_status",
+        "orders.create",
+        "orders.edit",
+        "orders.cancel",
+        "orders.return",
         # Customers
         "customers.read",
-        # Products & inventory
+        # Products, categories, media & inventory
         "products.read",
+        "products.manage",
+        "categories.read",
+        "categories.manage",
+        "media.manage",
         "inventory.read",
         "inventory.update",
+        "inventory.adjust",
+        # Couriers / shipments
+        "shipments.read",
+        "shipments.manage",
         # System
         "audit.read",
         "dashboard.read",
+        "settings.manage",
     }
 )
 
@@ -39,18 +52,33 @@ ROLE_PERMISSIONS: dict[str, set[str]] = {
         "orders.read",
         "orders.confirm",
         "orders.update_status",
+        "orders.create",
+        "orders.edit",
+        "orders.cancel",
+        "orders.return",
         "customers.read",
         "products.read",
+        "products.manage",
+        "categories.read",
+        "categories.manage",
+        "media.manage",
         "inventory.read",
         "inventory.update",
+        "inventory.adjust",
+        "shipments.read",
+        "shipments.manage",
         "dashboard.read",
+        "audit.read",
     },
     "support": {
         "orders.read",
         "customers.read",
         "products.read",
+        "categories.read",
         "inventory.read",
+        "shipments.read",
         "dashboard.read",
+        "audit.read",
     },
 }
 
