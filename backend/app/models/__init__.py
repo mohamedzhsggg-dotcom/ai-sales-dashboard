@@ -1,4 +1,5 @@
 from datetime import datetime
+import sqlalchemy as sa
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
@@ -90,6 +91,7 @@ class Product(Base):
     sku = Column(String(100), index=True)
     description = Column(Text)
     status = Column(String(20), default="active", index=True)  # active | archived
+    category_id = Column(Integer, ForeignKey("categories.id"), nullable=True, index=True)
     price = Column(Integer)
     sizes = Column(JSONB, nullable=False, server_default="[]")
     colors = Column(JSONB, nullable=False, server_default="[]")
@@ -123,6 +125,26 @@ class ProductVariant(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     product = relationship("Product", back_populates="variants")
+
+
+class Category(Base):
+    __tablename__ = "categories"
+    __table_args__ = (
+        sa.UniqueConstraint("tenant_id", "slug", name="uq_categories_tenant_slug"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False, index=True)
+    parent_id = Column(Integer, ForeignKey("categories.id"), nullable=True, index=True)
+    name = Column(String(255), nullable=False)
+    slug = Column(String(255), nullable=False, index=True)
+    sort_order = Column(Integer, default=0)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    parent = relationship("Category", remote_side=[id], back_populates="children")
+    children = relationship("Category", back_populates="parent")
 
 
 class Order(Base):

@@ -170,3 +170,54 @@ class AuditLogOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# ---------- Categories ----------
+class CategoryIn(BaseModel):
+    name: str = Field(..., min_length=1, max_length=255)
+    slug: Optional[str] = Field(None, max_length=255)
+    parent_id: Optional[int] = None
+    sort_order: int = 0
+    is_active: bool = True
+
+
+class CategoryUpdate(BaseModel):
+    name: Optional[str] = Field(None, min_length=1, max_length=255)
+    slug: Optional[str] = Field(None, max_length=255)
+    parent_id: Optional[int] = None
+    sort_order: Optional[int] = None
+    is_active: Optional[bool] = None
+
+
+class CategoryOut(BaseModel):
+    id: int
+    tenant_id: int
+    name: str
+    slug: str
+    parent_id: Optional[int] = None
+    sort_order: int = 0
+    is_active: bool = True
+    product_count: Optional[int] = 0
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class CategoryNode(BaseModel):
+    id: int
+    name: str
+    slug: str
+    parent_id: Optional[int] = None
+    sort_order: int = 0
+    is_active: bool = True
+    children: list["CategoryNode"] = []
+
+    class Config:
+        from_attributes = True
+
+
+class CategoryListResponse(BaseModel):
+    items: list[CategoryOut]
+    total: int

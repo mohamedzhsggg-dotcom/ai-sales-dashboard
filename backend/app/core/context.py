@@ -20,6 +20,7 @@ TENANT_SCOPED_MODELS = (
     "Customer",
     "Product",
     "ProductVariant",
+    "Category",
     "Order",
     "OrderStatusHistory",
     "InventoryEvent",
