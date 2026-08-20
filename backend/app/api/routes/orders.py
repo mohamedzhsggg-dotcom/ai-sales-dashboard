@@ -4,7 +4,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
-from app.core.security import get_current_user, require_roles
+from app.core.context import ensure_tenant, tenant_query
+from app.core.rbac import require_permission
+from app.core.security import get_current_user
 from app.database import get_db
 from app.models import AuditLog, InventoryEvent, Order, OrderStatusHistory, User
 from app.schemas import (
@@ -38,7 +40,7 @@ def list_orders(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    q = db.query(Order).filter(Order.tenant_id == user.tenant_id)
+    q = tenant_query(db, Order, user.tenant_id)
     if status:
         q = q.filter(Order.status == status)
     if wilaya:
@@ -71,7 +73,7 @@ def list_orders(
 @router.get("/{order_id}", response_model=OrderDetail)
 def get_order(order_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     order = db.get(Order, order_id)
-    if not order or order.tenant_id != user.tenant_id:
+    if not ensure_tenant(order, user.tenant_id):
         raise HTTPException(status_code=404, detail="Order not found")
     detail = OrderDetail.model_validate(order)
     detail.status_history = [
@@ -84,10 +86,10 @@ def get_order(order_id: int, db: Session = Depends(get_db), user: User = Depends
 def confirm_order(
     order_id: int,
     db: Session = Depends(get_db),
-    user: User = Depends(require_roles("admin", "agent")),
+    user: User = Depends(require_permission("orders.confirm")),
 ):
     order = db.get(Order, order_id)
-    if not order or order.tenant_id != user.tenant_id:
+    if not ensure_tenant(order, user.tenant_id):
         raise HTTPException(status_code=404, detail="Order not found")
     if order.status == "confirmed":
         raise HTTPException(status_code=409, detail="Order already confirmed")
@@ -108,10 +110,10 @@ def update_status(
     order_id: int,
     payload: OrderStatusUpdate,
     db: Session = Depends(get_db),
-    user: User = Depends(require_roles("admin", "agent")),
+    user: User = Depends(require_permission("orders.update_status")),
 ):
     order = db.get(Order, order_id)
-    if not order or order.tenant_id != user.tenant_id:
+    if not ensure_tenant(order, user.tenant_id):
         raise HTTPException(status_code=404, detail="Order not found")
 
     from_status = order.status

@@ -1,7 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.core.security import get_current_user, require_roles
+from app.core.context import ensure_tenant, tenant_query
+from app.core.rbac import require_permission
+from app.core.security import get_current_user
 from app.database import get_db
 from app.models import InventoryEvent, Product, User
 from app.schemas import InventoryItem, InventorySummary, ProductOut, StockUpdate
@@ -17,12 +19,12 @@ def list_inventory(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    q = db.query(Product).filter(Product.tenant_id == user.tenant_id)
+    q = tenant_query(db, Product, user.tenant_id)
     if low_stock:
         q = q.filter(Product.stock > 0, Product.stock <= 5)
     if out_of_stock:
         q = q.filter(Product.stock == 0)
-    products = q.order_by(Product.stock.asc()).all()
+    products = tenant_query(db, Product, user.tenant_id).order_by(Product.stock.asc()).all()
     items = []
     for p in products:
         item = InventoryItem.model_validate(p)
@@ -33,7 +35,7 @@ def list_inventory(
 
 @router.get("/summary", response_model=InventorySummary)
 def inventory_summary(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    products = db.query(Product).filter(Product.tenant_id == user.tenant_id).all()
+    products = tenant_query(db, Product, user.tenant_id).all()
     total_stock = sum(p.stock or 0 for p in products)
     return InventorySummary(
         total_products=len(products),
@@ -48,10 +50,10 @@ def update_stock(
     product_id: int,
     payload: StockUpdate,
     db: Session = Depends(get_db),
-    user: User = Depends(require_roles("admin", "agent")),
+    user: User = Depends(require_permission("inventory.update")),
 ):
     product = db.get(Product, product_id)
-    if not product or product.tenant_id != user.tenant_id:
+    if not ensure_tenant(product, user.tenant_id):
         raise HTTPException(status_code=404, detail="Product not found")
 
     old_stock = product.stock or 0

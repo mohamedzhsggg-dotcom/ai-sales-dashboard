@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
+from app.core.context import tenant_query
 from app.core.security import get_current_user
 from app.database import get_db
 from app.models import AuditLog, User
@@ -16,7 +17,7 @@ def list_logs(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    q = db.query(AuditLog).filter(AuditLog.tenant_id == user.tenant_id)
+    q = tenant_query(db, AuditLog, user.tenant_id)
     if action:
         q = q.filter(AuditLog.action == action)
     logs = q.order_by(AuditLog.created_at.desc()).limit(limit).all()

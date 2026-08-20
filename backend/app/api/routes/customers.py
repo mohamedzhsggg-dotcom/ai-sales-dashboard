@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
+from app.core.context import ensure_tenant, tenant_query
 from app.core.security import get_current_user
 from app.database import get_db
 from app.models import Customer, Order, User
@@ -24,7 +25,7 @@ def list_customers(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    q = db.query(Customer).filter(Customer.tenant_id == user.tenant_id)
+    q = tenant_query(db, Customer, user.tenant_id)
     if search:
         like = f"%{search}%"
         q = q.filter(or_(Customer.name.ilike(like), Customer.phone.ilike(like)))
@@ -55,7 +56,7 @@ def get_customer(
     user: User = Depends(get_current_user),
 ):
     customer = db.get(Customer, customer_id)
-    if not customer or customer.tenant_id != user.tenant_id:
+    if not ensure_tenant(customer, user.tenant_id):
         raise HTTPException(status_code=404, detail="Customer not found")
     detail = CustomerDetail.model_validate(customer)
     detail.orders = [

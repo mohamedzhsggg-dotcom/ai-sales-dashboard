@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
+from app.core.context import ensure_tenant, tenant_query
 from app.core.security import get_current_user
 from app.database import get_db
 from app.models import Product, User
@@ -18,7 +19,7 @@ def list_products(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    q = db.query(Product).filter(Product.tenant_id == user.tenant_id)
+    q = tenant_query(db, Product, user.tenant_id)
     if search:
         like = f"%{search}%"
         q = q.filter(or_(Product.name.ilike(like), Product.fb_post_id.ilike(like), Product.ig_post_id.ilike(like)))
@@ -39,6 +40,6 @@ def get_product(
     user: User = Depends(get_current_user),
 ):
     product = db.get(Product, product_id)
-    if not product or product.tenant_id != user.tenant_id:
+    if not ensure_tenant(product, user.tenant_id):
         raise HTTPException(status_code=404, detail="Product not found")
     return ProductOut.model_validate(product)

@@ -3,18 +3,29 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
 
 from app.config import get_settings
-from app.database import Base, engine
-from app.api.routes import auth, audit, customers, dashboard, inventory, orders, products
+from app.core.errors import RequestContextMiddleware, register_error_handlers
+from app.core.logging import AccessLogMiddleware, setup_logging
+from app.core.monitoring import MetricsMiddleware, init_sentry, metrics_response
+from app.middleware.idempotency import IdempotencyMiddleware
+from app.middleware.ratelimit import RateLimitMiddleware
+from app.database import engine
+from app.api.routes import auth, audit, customers, dashboard, health, inventory, orders, products
 
-logging.basicConfig(level=logging.INFO)
+setup_logging()
+logger = logging.getLogger(__name__)
 settings = get_settings()
+init_sentry(settings.SENTRY_DSN)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    Base.metadata.create_all(bind=engine)
+    # Schema is managed by Alembic migrations (backend/migrations). Here we only
+    # verify the database is reachable; tables are NOT created on startup.
+    with engine.connect() as conn:
+        conn.execute(text("SELECT 1"))
     yield
 
 
@@ -24,6 +35,11 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.add_middleware(AccessLogMiddleware)
+app.add_middleware(RateLimitMiddleware)
+app.add_middleware(IdempotencyMiddleware)
+app.add_middleware(MetricsMiddleware)
+app.add_middleware(RequestContextMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
@@ -31,6 +47,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+register_error_handlers(app)
 
 app.include_router(auth.router, prefix=settings.API_PREFIX)
 app.include_router(orders.router, prefix=settings.API_PREFIX)
@@ -39,8 +56,9 @@ app.include_router(products.router, prefix=settings.API_PREFIX)
 app.include_router(inventory.router, prefix=settings.API_PREFIX)
 app.include_router(dashboard.router, prefix=settings.API_PREFIX)
 app.include_router(audit.router, prefix=settings.API_PREFIX)
+app.include_router(health.router)
 
 
-@app.get("/health")
-def health():
-    return {"status": "ok", "app": settings.APP_NAME}
+@app.get("/metrics")
+def metrics():
+    return metrics_response()

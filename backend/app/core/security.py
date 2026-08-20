@@ -3,7 +3,7 @@ from typing import Optional
 
 from jose import jwt
 from passlib.context import CryptContext
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 
@@ -62,11 +62,15 @@ def decode_token(token: str, expected_type: str) -> dict:
 def get_current_user(
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db),
+    request: Request = None,  # type: ignore[assignment]  # injected by FastAPI
 ) -> User:
     payload = decode_token(token, "access")
     user = db.get(User, int(payload["sub"]))
     if not user or not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User inactive or missing")
+    if request is not None:
+        request.state.user_id = user.id
+        request.state.tenant_id = user.tenant_id
     return user
 
 

@@ -28,14 +28,18 @@ Facebook/Instagram ──> n8n (unchanged) ──> Google Sheets (source of trut
 ai-sales-dashboard/
 ├── backend/            FastAPI app
 │   ├── app/
-│   │   ├── api/routes/   auth, orders, customers, products, inventory, dashboard, audit
-│   │   ├── core/         JWT security
+│   │   ├── api/routes/   auth, orders, customers, products, inventory, dashboard, audit, health
+│   │   ├── core/         JWT security, RBAC, tenant context, error envelope, logging, monitoring
+│   │   ├── middleware/   idempotency, rate limiting
 │   │   ├── models/       SQLAlchemy models (tenant-scoped)
 │   │   ├── schemas/      Pydantic schemas
 │   │   ├── services/     Google Sheets client + write-back service
 │   │   └── workers/      sync worker (sheets → Postgres)
+│   ├── migrations/       Alembic migrations (additive)
+│   ├── tests/            pytest suite (isolation, auth, RBAC, idempotency)
 │   └── run.py
 ├── frontend/           Next.js 15 + Tailwind dashboard
+├── infra/backup.ps1    verified backup script (tar + pg_dump + sha256 manifest)
 ├── docker-compose.yml  Postgres + Redis
 └── .env.example        environment template
 ```
@@ -70,8 +74,13 @@ cd backend
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-python run.py            # http://localhost:8000/docs
+alembic upgrade head        # apply schema migrations (additive only)
+python run.py               # http://localhost:8000/docs
 ```
+
+> The live database is the source of truth. Schema changes come exclusively through
+> Alembic migrations (`alembic revision --autogenerate` + review, then `alembic upgrade head`).
+> The app no longer calls `create_all` at startup.
 
 Bootstrap the first admin user (dev only):
 ```powershell
@@ -111,6 +120,26 @@ python -m app.workers.sync_worker
 | GET | `/dashboard/stats` | KPIs for the overview page |
 
 Interactive docs at `http://localhost:8000/docs`.
+
+## Health, metrics & tests
+
+| Path | Description |
+|---|---|
+| `GET /health` | Liveness probe (always 200 while the app is up) |
+| `GET /ready` | Readiness: DB required, Redis optional (degraded → still OK) |
+| `GET /metrics` | Prometheus metrics (request counters, latency histogram) |
+
+Run the test suite (uses the dedicated `dashboard_test` DB; never touches live data):
+```powershell
+cd backend
+$env:DATABASE_URL="postgresql+psycopg2://dashboard:dashboard@localhost:5432/dashboard_test"
+.\.venv\Scripts\python.exe -m pytest
+```
+
+Create/restore a verified backup (tar + pg_dump + sha256 manifest):
+```powershell
+powershell -ExecutionPolicy Bypass -File infra\backup.ps1 -Name backup
+```
 
 ## Google Sheets (unchanged for n8n)
 

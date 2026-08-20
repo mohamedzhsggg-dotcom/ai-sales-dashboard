@@ -185,3 +185,19 @@ class IdempotencyKey(Base):
     key = Column(String(255), unique=True, nullable=False, index=True)
     response_json = Column(JSONB)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class Permission(Base):
+    __tablename__ = "permissions"
+
+    id = Column(Integer, primary_key=True)
+    code = Column(String(100), unique=True, nullable=False, index=True)
+    description = Column(String(255))
+
+
+class RolePermission(Base):
+    __tablename__ = "role_permissions"
+
+    id = Column(Integer, primary_key=True)
+    role = Column(String(50), nullable=False, index=True)
+    permission_id = Column(Integer, ForeignKey("permissions.id"), nullable=False, index=True)

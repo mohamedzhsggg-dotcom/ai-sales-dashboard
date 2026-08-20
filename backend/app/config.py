@@ -24,6 +24,14 @@ class Settings(BaseSettings):
     # Redis
     REDIS_URL: str = "redis://localhost:6379/0"
 
+    # Rate limiting (per user per window)
+    RATE_LIMIT_ENABLED: bool = True
+    RATE_LIMIT_PER_MINUTE: int = 120
+    RATE_LIMIT_AUTH_PER_MINUTE: int = 20
+
+    # Observability
+    SENTRY_DSN: str = ""
+
     # CORS
     CORS_ORIGINS: list[str] = ["http://localhost:3000"]
 

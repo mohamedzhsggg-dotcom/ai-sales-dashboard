@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from app.core.context import tenant_query
 from app.core.security import get_current_user
 from app.database import get_db
 from app.models import Order, Product, User
@@ -15,12 +16,14 @@ def stats(db: Session = Depends(get_db), user: User = Depends(get_current_user))
     tenant_id = user.tenant_id
 
     new_orders = (
-        db.query(func.count(Order.id)).filter(Order.tenant_id == tenant_id, Order.status == "new").scalar() or 0
+        tenant_query(db, Order, tenant_id)
+        .filter(Order.status == "new")
+        .count()
     )
     confirmed = (
-        db.query(func.count(Order.id))
-        .filter(Order.tenant_id == tenant_id, Order.status == "confirmed")
-        .scalar() or 0
+        tenant_query(db, Order, tenant_id)
+        .filter(Order.status == "confirmed")
+        .count()
     )
     total_revenue = (
         db.query(func.coalesce(func.sum(Order.price * Order.quantity), 0))
@@ -28,21 +31,20 @@ def stats(db: Session = Depends(get_db), user: User = Depends(get_current_user))
         .scalar() or 0
     )
     low_stock = (
-        db.query(func.count(Product.id))
-        .filter(Product.tenant_id == tenant_id, Product.stock > 0, Product.stock <= 5)
-        .scalar() or 0
+        tenant_query(db, Product, tenant_id)
+        .filter(Product.stock > 0, Product.stock <= 5)
+        .count()
     )
     by_wilaya = [
         {"wilaya": w, "count": c}
-        for w, c in db.query(Order.wilaya, func.count(Order.id))
-        .filter(Order.tenant_id == tenant_id)
+        for w, c in tenant_query(db, Order, tenant_id)
+        .with_entities(Order.wilaya, func.count(Order.id))
         .group_by(Order.wilaya)
         .order_by(func.count(Order.id).desc())
         .all()
     ]
     recent = (
-        db.query(Order)
-        .filter(Order.tenant_id == tenant_id)
+        tenant_query(db, Order, tenant_id)
         .order_by(Order.created_at.desc())
         .limit(10)
         .all()

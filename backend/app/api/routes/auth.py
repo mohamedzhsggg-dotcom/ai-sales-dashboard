@@ -67,7 +67,13 @@ def refresh(payload: RefreshRequest, db: Session = Depends(get_db)):
         SessionModel.user_id == int(data["sub"]),
         SessionModel.refresh_token_hash == hash_refresh_token(payload.refresh_token),
     ).first()
-    if not sess or sess.expires_at < datetime.now(timezone.utc):
+    if not sess:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
+    # Postgres timestamps are naive; normalize to aware UTC before comparing.
+    expires_at = sess.expires_at
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    if expires_at < datetime.now(timezone.utc):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
     user = db.get(User, int(data["sub"]))
     if not user or not user.is_active:
