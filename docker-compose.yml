@@ -1,16 +1,19 @@
 version: "3.9"
 
+# ============================================================
+# PRODUCTION docker-compose for Caddy-based server
+# Backend: 127.0.0.1:8001  Frontend: 127.0.0.1:3000
+# Caddy handles SSL termination and routing
+# ============================================================
+
 services:
-  # ──────────────────────────────────────────────
-  # PostgreSQL - Authoritative database
-  # ──────────────────────────────────────────────
   db:
     image: postgres:16-alpine
     container_name: ai-dashboard-db
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-dashboard}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB:-dashboard}
     volumes:
       - pgdata:/var/lib/postgresql/data
@@ -22,9 +25,6 @@ services:
     networks:
       - internal
 
-  # ──────────────────────────────────────────────
-  # Redis - Rate limiting & caching
-  # ──────────────────────────────────────────────
   redis:
     image: redis:7-alpine
     container_name: ai-dashboard-redis
@@ -39,9 +39,6 @@ services:
     networks:
       - internal
 
-  # ──────────────────────────────────────────────
-  # Backend - FastAPI application
-  # ──────────────────────────────────────────────
   backend:
     build:
       context: ./backend
@@ -50,6 +47,8 @@ services:
     restart: unless-stopped
     env_file:
       - ./backend/.env.production
+    ports:
+      - "127.0.0.1:8001:8000"
     depends_on:
       db:
         condition: service_healthy
@@ -64,9 +63,6 @@ services:
       retries: 3
       start_period: 30s
 
-  # ──────────────────────────────────────────────
-  # Frontend - Next.js merchant dashboard
-  # ──────────────────────────────────────────────
   frontend:
     build:
       context: ./frontend
@@ -75,6 +71,8 @@ services:
     restart: unless-stopped
     env_file:
       - ./frontend/.env.production
+    ports:
+      - "127.0.0.1:3000:3000"
     depends_on:
       - backend
     networks:
@@ -84,26 +82,6 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-
-  # ──────────────────────────────────────────────
-  # Nginx - Reverse proxy + HTTPS
-  # ──────────────────────────────────────────────
-  nginx:
-    image: nginx:alpine
-    container_name: ai-dashboard-nginx
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/conf.d:/etc/nginx/conf.d:ro
-      - ./nginx/certs:/etc/nginx/certs:ro
-    depends_on:
-      - backend
-      - frontend
-    networks:
-      - internal
 
 networks:
   internal:
