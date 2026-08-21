@@ -82,6 +82,10 @@ class Customer(Base):
 
 class Product(Base):
     __tablename__ = "products"
+    __table_args__ = (
+        sa.Index("ix_products_tenant_sku", "tenant_id", "sku", unique=True,
+                 postgresql_where="sku IS NOT NULL"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False, index=True)
@@ -108,10 +112,15 @@ class Product(Base):
     variants = relationship(
         "ProductVariant", back_populates="product", cascade="all, delete-orphan"
     )
+    category = relationship("Category", foreign_keys=[category_id])
 
 
 class ProductVariant(Base):
     __tablename__ = "product_variants"
+    __table_args__ = (
+        sa.Index("ix_variants_tenant_sku", "tenant_id", "sku", unique=True,
+                 postgresql_where="sku IS NOT NULL"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False, index=True)

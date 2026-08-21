@@ -110,20 +110,101 @@ class CustomerListResponse(BaseModel):
 
 
 # ---------- Products / Inventory ----------
-class ProductOut(BaseModel):
-    id: int
-    name: str
+class ProductCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=255)
+    type: str = Field("simple", pattern="^(simple|variable)$")
+    sku: Optional[str] = Field(None, max_length=100)
+    description: Optional[str] = None
+    status: str = Field("active", pattern="^(active|archived)$")
+    category_id: Optional[int] = None
     price: Optional[int] = None
     sizes: list[Any] = []
     colors: list[Any] = []
     image_url: Optional[str] = None
-    stock: int
-    fb_post_id: Optional[str] = None
-    ig_post_id: Optional[str] = None
+    stock: int = Field(0, ge=0)
+    low_stock_threshold: int = Field(5, ge=0)
+    is_dashboard_managed: bool = False
+
+
+class ProductUpdate(BaseModel):
+    name: Optional[str] = Field(None, min_length=1, max_length=255)
+    type: Optional[str] = Field(None, pattern="^(simple|variable)$")
+    sku: Optional[str] = Field(None, max_length=100)
+    description: Optional[str] = None
+    status: Optional[str] = Field(None, pattern="^(active|archived)$")
+    category_id: Optional[int] = None
+    price: Optional[int] = None
+    sizes: Optional[list[Any]] = None
+    colors: Optional[list[Any]] = None
+    image_url: Optional[str] = None
+    stock: Optional[int] = Field(None, ge=0)
+    low_stock_threshold: Optional[int] = Field(None, ge=0)
+    is_dashboard_managed: Optional[bool] = None
+
+
+class ProductVariantOut(BaseModel):
+    id: int
+    tenant_id: int
+    product_id: int
+    sku: Optional[str] = None
+    options: dict = {}
+    price: Optional[int] = None
+    stock: int = 0
+    is_active: bool = True
+    effective_price: Optional[int] = None
+    created_at: datetime
     updated_at: datetime
 
     class Config:
         from_attributes = True
+
+
+class VariantCreate(BaseModel):
+    sku: Optional[str] = Field(None, max_length=100)
+    options: dict = {}
+    price: Optional[int] = None
+    stock: int = Field(0, ge=0)
+    is_active: bool = True
+
+
+class VariantUpdate(BaseModel):
+    sku: Optional[str] = Field(None, max_length=100)
+    options: Optional[dict] = None
+    price: Optional[int] = None
+    stock: Optional[int] = Field(None, ge=0)
+    is_active: Optional[bool] = None
+
+
+class ProductOut(BaseModel):
+    id: int
+    tenant_id: int
+    name: str
+    type: str = "simple"
+    sku: Optional[str] = None
+    description: Optional[str] = None
+    status: str = "active"
+    category_id: Optional[int] = None
+    price: Optional[int] = None
+    sizes: list[Any] = []
+    colors: list[Any] = []
+    image_url: Optional[str] = None
+    stock: int = 0
+    low_stock_threshold: int = 5
+    is_dashboard_managed: bool = False
+    fb_post_id: Optional[str] = None
+    ig_post_id: Optional[str] = None
+    variant_count: int = 0
+    total_stock: int = 0
+    low_stock: bool = False
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class ProductDetail(ProductOut):
+    variants: list[ProductVariantOut] = []
 
 
 class ProductListResponse(BaseModel):
