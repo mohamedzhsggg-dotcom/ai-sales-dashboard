@@ -3,7 +3,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.context import tenant_query
-from app.core.security import get_current_user
+from app.core.rbac import require_permission
 from app.database import get_db
 from app.models import Order, Product, User
 from app.schemas import DashboardStats, OrderOut
@@ -12,7 +12,7 @@ router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
 
 @router.get("/stats", response_model=DashboardStats)
-def stats(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+def stats(db: Session = Depends(get_db), user: User = Depends(require_permission("dashboard.read"))):
     tenant_id = user.tenant_id
 
     new_orders = (

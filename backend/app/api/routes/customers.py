@@ -3,7 +3,7 @@ from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.core.context import ensure_tenant, tenant_query
-from app.core.security import get_current_user
+from app.core.rbac import require_permission
 from app.database import get_db
 from app.models import Customer, Order, User
 from app.schemas import (
@@ -23,7 +23,7 @@ def list_customers(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_permission("customers.read")),
 ):
     q = tenant_query(db, Customer, user.tenant_id)
     if search:
@@ -53,7 +53,7 @@ def list_customers(
 def get_customer(
     customer_id: int,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_permission("customers.read")),
 ):
     customer = db.get(Customer, customer_id)
     if not ensure_tenant(customer, user.tenant_id):
@@ -61,7 +61,7 @@ def get_customer(
     detail = CustomerDetail.model_validate(customer)
     detail.orders = [
         OrderOut.model_validate(o)
-        for o in db.query(Order)
+        for o in tenant_query(db, Order, user.tenant_id)
         .filter(Order.customer_id == customer.id)
         .order_by(Order.created_at.desc())
         .all()

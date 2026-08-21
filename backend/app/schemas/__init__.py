@@ -496,9 +496,9 @@ class ShipmentDetail(ShipmentOut):
 
 class ShipmentCreate(BaseModel):
     order_id: int
-    courier_name: str = "yalidine"
-    delivery_method: Optional[str] = None
-    notes: Optional[str] = None
+    courier_name: str = Field(default="yalidine", max_length=50)
+    delivery_method: Optional[str] = Field(default=None, max_length=50)
+    notes: Optional[str] = Field(default=None, max_length=500)
 
 
 class ShipmentListResponse(BaseModel):
