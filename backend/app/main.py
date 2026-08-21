@@ -39,6 +39,39 @@ async def lifespan(app: FastAPI):
     # verify the database is reachable; tables are NOT created on startup.
     with engine.connect() as conn:
         conn.execute(text("SELECT 1"))
+
+    # Bootstrap admin user on first startup (if ADMIN_EMAIL + ADMIN_PASSWORD set)
+    if settings.ADMIN_EMAIL and settings.ADMIN_PASSWORD:
+        from app.core.security import hash_password
+        from app.database import SessionLocal
+        from app.models import User, Tenant
+
+        db = SessionLocal()
+        try:
+            if db.query(User).count() == 0:
+                # Find or create default tenant
+                tenant = db.query(Tenant).filter(Tenant.slug == "default").first()
+                if not tenant:
+                    tenant = Tenant(name="Default", slug="default", config={"sheets": {}})
+                    db.add(tenant)
+                    db.flush()
+                user = User(
+                    tenant_id=tenant.id,
+                    email=settings.ADMIN_EMAIL,
+                    password_hash=hash_password(settings.ADMIN_PASSWORD),
+                    full_name=settings.ADMIN_FULL_NAME,
+                    role="admin",
+                )
+                db.add(user)
+                db.commit()
+                logger.info("Admin user bootstrapped: %s (tenant: %s)", settings.ADMIN_EMAIL, tenant.slug)
+            else:
+                logger.info("Users exist, skipping admin bootstrap.")
+        except Exception:
+            logger.exception("Admin bootstrap failed")
+        finally:
+            db.close()
+
     yield
 
 

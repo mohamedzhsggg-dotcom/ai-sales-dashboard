@@ -24,32 +24,26 @@ if ! docker compose version >/dev/null 2>&1; then
 fi
 log "Docker: $(docker --version 2>&1 | head -1)"
 log "Compose: $(docker compose version 2>&1 | head -1)"
+
+# Verify n8n untouched
 if docker ps --format '{{.Names}}' | grep -q "^n8n$"; then
     log "n8n: running (untouched)"
 fi
 
 # 2. Verify project
 if [ ! -f "$APP_DIR/docker-compose.yml" ]; then
-    err "Project not found at $APP_DIR"
+    err "Project not found at $APP_DIR. Upload first:\n  scp -r \"C:\\Users\\My PC\\OneDrive\\Documents\\Default Project\\ai-sales-dashboard\" root@2.28.10.88:/opt/ai-sales-dashboard"
 fi
 log "Project files found."
 
-# 3. Generate secrets
+# 3. Generate all secrets
 SECRET_KEY=$(openssl rand -base64 48 | tr -d '\n')
 PG_PASS=$(openssl rand -base64 24 | tr -d '\n')
+ADMIN_PASS=$(openssl rand -base64 16 | tr -d '\n')
+ADMIN_EMAIL="admin@${DOMAIN}"
 log "Secrets generated."
 
-# 4. Collect credentials
-echo ""
-echo "  Press Enter to skip any credential."
-echo ""
-read -p "  OpenAI API Key (Enter to skip): " OPENAI_KEY
-read -p "  Meta App Secret (Enter to skip): " META_SECRET
-read -p "  Meta Verify Token (Enter to skip): " META_VERIFY
-read -p "  Meta Page Access Token (Enter to skip): " META_PAGE_TOKEN
-read -p "  Meta Instagram Account ID (Enter to skip): " META_IG
-
-# 5. Write env files
+# 4. Write env files
 cat > "$APP_DIR/backend/.env.production" <<ENVEOF
 APP_ENV=production
 DEBUG=false
@@ -71,33 +65,36 @@ YALIDINE_API_BASE_URL=https://api.yalidine.app/v1
 RETURNS_ENABLED=true
 SHIPMENTS_ENABLED=true
 AI_PROVIDER=mock
-OPENAI_API_KEY=${OPENAI_KEY}
+OPENAI_API_KEY=
 OPENAI_MODEL=gpt-4o-mini
-META_APP_SECRET=${META_SECRET}
-META_VERIFY_TOKEN=${META_VERIFY}
-META_PAGE_ACCESS_TOKEN=${META_PAGE_TOKEN}
-META_IG_ACCOUNT_ID=${META_IG}
+META_APP_SECRET=
+META_VERIFY_TOKEN=
+META_PAGE_ACCESS_TOKEN=
+META_IG_ACCOUNT_ID=
+ADMIN_EMAIL=${ADMIN_EMAIL}
+ADMIN_PASSWORD=${ADMIN_PASS}
+ADMIN_FULL_NAME=Administrator
 SENTRY_DSN=
 ENVEOF
 
 cat > "$APP_DIR/frontend/.env.production" <<ENVEOF
 NEXT_PUBLIC_API_URL=https://api.${DOMAIN}
 ENVEOF
-log "Env files written."
+log "Environment files written."
 
-# 6. Build and start
+# 5. Build and start
 cd "$APP_DIR"
 docker compose down 2>/dev/null || true
 docker compose up -d --build
 log "Containers building..."
 
-# 7. Wait for PostgreSQL
+# 6. Wait for PostgreSQL
 for i in $(seq 1 30); do
     docker compose exec -T db pg_isready -U dashboard >/dev/null 2>&1 && { log "PostgreSQL ready."; break; }
     sleep 2
 done
 
-# 8. Wait for backend
+# 7. Wait for backend
 log "Waiting for backend..."
 for i in $(seq 1 60); do
     if curl -sf http://127.0.0.1:8001/health >/dev/null 2>&1; then
@@ -108,54 +105,90 @@ for i in $(seq 1 60); do
     sleep 3
 done
 
-# 9. Migrations
+# 8. Migrations
 log "Running migrations..."
 docker compose exec -T backend alembic upgrade head 2>/dev/null || warn "Run manually: docker compose exec backend alembic upgrade head"
 
-# 10. Verify
+# 9. Verify
 echo ""
 log "=== Verification ==="
 curl -sf http://127.0.0.1:8001/health && echo "" || warn "/health failed"
 curl -sf http://127.0.0.1:8001/ready && echo "" || warn "/ready failed"
 curl -sf http://127.0.0.1:3000 >/dev/null && log "Frontend OK" || warn "Frontend not ready"
 
-# 11. Caddy config
-echo ""
-echo "============================================================"
-echo "  ADD TO CADDYFILE (/etc/caddy/Caddyfile)"
-echo "============================================================"
-echo ""
-echo "# --- AI Sales Dashboard ---"
-echo "app.eviraw.com {"
-echo "    reverse_proxy 127.0.0.1:3000"
-echo "    header { X-Frame-Options SAMEORIGIN X-Content-Type-Options nosniff Strict-Transport-Security max-age=31536000;includeSubDomains }"
-echo "}"
-echo ""
-echo "api.eviraw.com {"
-echo "    reverse_proxy 127.0.0.1:8001"
-echo "    header { X-Frame-Options DENY X-Content-Type-Options nosniff Strict-Transport-Security max-age=31536000;includeSubDomains }"
-echo "}"
-echo "# --- END AI Sales Dashboard ---"
-echo ""
-echo "Then run: sudo systemctl reload caddy"
-echo ""
+# 10. Print results
+SERVER_IP=$(curl -s ifconfig.me 2>/dev/null || echo "2.28.10.88")
 
+echo ""
 echo "============================================================"
 echo "  DEPLOYMENT COMPLETE"
 echo "============================================================"
 echo ""
-echo "  Local test:  http://127.0.0.1:3000 (dashboard)"
-echo "               http://127.0.0.1:8001 (API)"
+echo "  ADMIN LOGIN:"
+echo "    Email:    ${ADMIN_EMAIL}"
+echo "    Password: ${ADMIN_PASS}"
+echo ""
+echo "  (Saved to: $APP_DIR/backend/.env.production)"
+echo ""
+echo "  Local test:  http://127.0.0.1:3000"
+echo "               http://127.0.0.1:8001/docs"
 echo ""
 echo "  STILL NEEDED:"
-echo "    1. DNS: app.eviraw.com -> $(curl -s ifconfig.me)"
-echo "           api.eviraw.com -> $(curl -s ifconfig.me)"
-echo "    2. Add Caddy config above to /etc/caddy/Caddyfile"
-echo "    3. sudo systemctl reload caddy"
-echo "    4. Fill skipped secrets:"
+echo ""
+echo "  1. DNS A records (at your domain registrar):"
+echo "       app.eviraw.com    ${SERVER_IP}"
+echo "       api.eviraw.com    ${SERVER_IP}"
+echo ""
+echo "  2. Add to Caddyfile (/etc/caddy/Caddyfile):"
+echo ""
+cat <<'CADDY'
+app.eviraw.com {
+    reverse_proxy 127.0.0.1:3000
+    header {
+        X-Frame-Options "SAMEORIGIN"
+        X-Content-Type-Options "nosniff"
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    }
+}
+
+api.eviraw.com {
+    reverse_proxy 127.0.0.1:8001
+    header {
+        X-Frame-Options "DENY"
+        X-Content-Type-Options "nosniff"
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    }
+    handle /webhooks/* {
+        reverse_proxy 127.0.0.1:8001
+    }
+    handle /health {
+        reverse_proxy 127.0.0.1:8001
+    }
+    handle /ready {
+        reverse_proxy 127.0.0.1:8001
+    }
+    handle {
+        reverse_proxy 127.0.0.1:8001
+    }
+}
+CADDY
+echo ""
+echo "  Then run:  systemctl reload caddy"
+echo "  (Caddy auto-obtains SSL via Let's Encrypt)"
+echo ""
+echo "  3. Fill in API keys (edit directly on server):"
 echo "       nano $APP_DIR/backend/.env.production"
-echo "       cd $APP_DIR && docker compose restart backend"
-echo "    5. Meta webhook: https://api.eviraw.com/webhooks/meta"
+echo "     Find and fill these lines:"
+echo "       OPENAI_API_KEY=..."
+echo "       META_APP_SECRET=..."
+echo "       META_VERIFY_TOKEN=..."
+echo "       META_PAGE_ACCESS_TOKEN=..."
+echo "       META_IG_ACCOUNT_ID=..."
+echo "     Then: cd $APP_DIR && docker compose restart backend"
+echo ""
+echo "  4. Meta webhook URL:"
+echo "       https://api.eviraw.com/webhooks/meta"
+echo "       Verify Token: (the META_VERIFY_TOKEN above)"
 echo ""
 echo "  Commands:"
 echo "    Logs:    cd $APP_DIR && docker compose logs -f"

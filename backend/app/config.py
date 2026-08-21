@@ -85,6 +85,11 @@ class Settings(BaseSettings):
     META_PAGE_ACCESS_TOKEN: str = ""
     META_IG_ACCOUNT_ID: str = ""
 
+    # Admin bootstrap (used on first startup if no users exist)
+    ADMIN_EMAIL: str = ""
+    ADMIN_PASSWORD: str = ""
+    ADMIN_FULL_NAME: str = "Administrator"
+
 
 @lru_cache
 def get_settings() -> Settings:
