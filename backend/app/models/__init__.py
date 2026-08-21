@@ -254,6 +254,24 @@ class PostProductMapping(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+class ProductMedia(Base):
+    __tablename__ = "product_media"
+
+    id = Column(Integer, primary_key=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False, index=True)
+    product_id = Column(Integer, ForeignKey("products.id", ondelete="CASCADE"), nullable=False, index=True)
+    variant_id = Column(Integer, ForeignKey("product_variants.id", ondelete="SET NULL"), nullable=True)
+    kind = Column(String(20), nullable=False)  # image | video
+    url = Column(Text, nullable=False)
+    filename = Column(String(255))
+    mime_type = Column(String(100))
+    size_bytes = Column(Integer)
+    alt_text = Column(String(500))
+    sort_order = Column(Integer, default=0)
+    is_primary = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
 class IdempotencyKey(Base):
     __tablename__ = "idempotency_keys"
 

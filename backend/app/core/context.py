@@ -27,6 +27,7 @@ TENANT_SCOPED_MODELS = (
     "AuditLog",
     "SyncRun",
     "PostProductMapping",
+    "ProductMedia",
 )
 
 

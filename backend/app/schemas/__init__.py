@@ -302,3 +302,30 @@ class CategoryNode(BaseModel):
 class CategoryListResponse(BaseModel):
     items: list[CategoryOut]
     total: int
+
+
+# ---------- Product Media ----------
+class ProductMediaOut(BaseModel):
+    id: int
+    tenant_id: int
+    product_id: int
+    variant_id: Optional[int] = None
+    kind: str
+    url: str
+    filename: Optional[str] = None
+    mime_type: Optional[str] = None
+    size_bytes: Optional[int] = None
+    alt_text: Optional[str] = None
+    sort_order: int = 0
+    is_primary: bool = False
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class ProductMediaUpdate(BaseModel):
+    alt_text: Optional[str] = None
+    sort_order: Optional[int] = None
+    is_primary: Optional[bool] = None
+    variant_id: Optional[int] = None
