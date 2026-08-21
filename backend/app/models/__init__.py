@@ -281,6 +281,23 @@ class IdempotencyKey(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
+class StockCount(Base):
+    __tablename__ = "stock_counts"
+
+    id = Column(Integer, primary_key=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False, index=True)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False, index=True)
+    variant_id = Column(Integer, ForeignKey("product_variants.id"), nullable=True, index=True)
+    expected_quantity = Column(Integer, nullable=False)
+    counted_quantity = Column(Integer, nullable=True)
+    delta = Column(Integer, nullable=True)
+    counted_by = Column(Integer, ForeignKey("users.id"))
+    counted_at = Column(DateTime, nullable=True)
+    note = Column(Text)
+    reconciled = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
 class Permission(Base):
     __tablename__ = "permissions"
 

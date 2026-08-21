@@ -86,7 +86,7 @@ def test_stock_update_works_pg_only_when_compat_off(monkeypatch, client, admin_a
         r = client.patch(
             f"/api/v1/inventory/{_sheet_backed_product.id}/stock",
             headers={"Authorization": f"Bearer {token}"},
-            json={"stock": 33},
+            json={"quantity": 33, "reason": "set"},
         )
         assert r.status_code == 200, r.text
         assert r.json()["stock"] == 33

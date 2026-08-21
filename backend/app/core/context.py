@@ -28,6 +28,7 @@ TENANT_SCOPED_MODELS = (
     "SyncRun",
     "PostProductMapping",
     "ProductMedia",
+    "StockCount",
 )
 
 

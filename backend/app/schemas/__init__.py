@@ -229,6 +229,58 @@ class InventorySummary(BaseModel):
     out_of_stock_count: int
 
 
+class StockAdjust(BaseModel):
+    quantity: int = Field(..., description="Positive to add, negative to deduct")
+    reason: Optional[str] = Field(None, pattern="^(manual|adjustment|restock|correction|set)$")
+
+
+class StockMovementOut(BaseModel):
+    id: int
+    tenant_id: int
+    product_id: Optional[int] = None
+    product_variant_id: Optional[int] = None
+    delta: int
+    reason: Optional[str] = None
+    order_id: Optional[int] = None
+    actor: Optional[int] = None
+    reference: Optional[str] = None
+    data: Optional[dict] = None
+    qty_after: Optional[int] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class StockCountCreate(BaseModel):
+    product_id: int
+    variant_id: Optional[int] = None
+    counted_quantity: Optional[int] = None
+    note: Optional[str] = None
+
+
+class StockCountReconcile(BaseModel):
+    note: Optional[str] = None
+
+
+class StockCountOut(BaseModel):
+    id: int
+    tenant_id: int
+    product_id: int
+    variant_id: Optional[int] = None
+    expected_quantity: int
+    counted_quantity: Optional[int] = None
+    delta: Optional[int] = None
+    counted_by: Optional[int] = None
+    counted_at: Optional[datetime] = None
+    note: Optional[str] = None
+    reconciled: bool = False
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
 # ---------- Dashboard ----------
 class DashboardStats(BaseModel):
     new_orders: int

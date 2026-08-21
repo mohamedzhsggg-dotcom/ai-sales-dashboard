@@ -81,7 +81,7 @@ def test_inventory_is_tenant_scoped(client, auth_headers, product_a, product_b):
 
 
 def test_cannot_update_other_tenant_stock(client, auth_headers, product_b):
-    r = client.patch(f"/api/v1/inventory/{product_b.id}/stock", headers=auth_headers, json={"stock": 999})
+    r = client.patch(f"/api/v1/inventory/{product_b.id}/stock", headers=auth_headers, json={"quantity": 999, "reason": "set"})
     assert r.status_code == 404
 
 
