@@ -22,6 +22,7 @@ TENANT_SCOPED_MODELS = (
     "ProductVariant",
     "Category",
     "Order",
+    "OrderItem",
     "OrderStatusHistory",
     "InventoryEvent",
     "AuditLog",
@@ -29,6 +30,7 @@ TENANT_SCOPED_MODELS = (
     "PostProductMapping",
     "ProductMedia",
     "StockCount",
+    "Return",
 )
 
 

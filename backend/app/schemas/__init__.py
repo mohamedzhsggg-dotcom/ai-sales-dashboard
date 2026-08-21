@@ -37,8 +37,42 @@ class UserOut(BaseModel):
 
 
 # ---------- Orders ----------
+class OrderItemCreate(BaseModel):
+    product_id: Optional[int] = None
+    variant_id: Optional[int] = None
+    quantity: int = Field(..., ge=1)
+    unit_price: Optional[int] = None
+
+
+class OrderCreate(BaseModel):
+    phone: str = Field(..., min_length=1)
+    name: Optional[str] = None
+    wilaya: Optional[str] = None
+    commune: Optional[str] = None
+    delivery_method: Optional[str] = None
+    source_channel: Optional[str] = None
+    notes: Optional[str] = None
+    items: list[OrderItemCreate] = Field(..., min_length=1)
+
+
+class OrderItemOut(BaseModel):
+    id: int
+    product_id: Optional[int] = None
+    product_name: Optional[str] = None
+    variant_id: Optional[int] = None
+    variant_options: Optional[dict] = None
+    sku: Optional[str] = None
+    quantity: int
+    unit_price: int
+    subtotal: int
+
+    class Config:
+        from_attributes = True
+
+
 class OrderOut(BaseModel):
     id: int
+    tenant_id: int
     order_id: Optional[str] = None
     phone: Optional[str] = None
     name: Optional[str] = None
@@ -52,6 +86,13 @@ class OrderOut(BaseModel):
     delivery_method: Optional[str] = None
     status: str
     source_channel: Optional[str] = None
+    subtotal: int = 0
+    shipping_fee: int = 0
+    total: int = 0
+    currency: str = "DZD"
+    items_count: int = 1
+    notes: Optional[str] = None
+    has_return: bool = False
     created_at: datetime
     updated_at: datetime
 
@@ -61,8 +102,9 @@ class OrderOut(BaseModel):
 
 class OrderDetail(OrderOut):
     customer_id: Optional[int] = None
-    sheet_row: Optional[int] = None
-    status_history: list[Any] = []
+    items: list[OrderItemOut] = []
+    cancel_reason: Optional[str] = None
+    cancel_note: Optional[str] = None
 
 
 class OrderStatusUpdate(BaseModel):
@@ -72,7 +114,6 @@ class OrderStatusUpdate(BaseModel):
 
 class ConfirmOrderResponse(BaseModel):
     order: OrderOut
-    stock_after: int
     message: str
 
 
@@ -279,6 +320,39 @@ class StockCountOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# ---------- Returns ----------
+class ReturnCreate(BaseModel):
+    order_item_id: Optional[int] = None
+    variant_id: Optional[int] = None
+    quantity: int = Field(..., ge=1)
+    reason: Optional[str] = None
+    refund_amount: int = Field(0, ge=0)
+    note: Optional[str] = None
+
+
+class ReturnOut(BaseModel):
+    id: int
+    tenant_id: int
+    order_id: int
+    order_item_id: Optional[int] = None
+    variant_id: Optional[int] = None
+    quantity: int
+    reason: Optional[str] = None
+    refund_amount: int = 0
+    status: str = "pending"
+    note: Optional[str] = None
+    created_by: Optional[int] = None
+    created_at: datetime
+    processed_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class ReturnAction(BaseModel):
+    note: Optional[str] = None
 
 
 # ---------- Dashboard ----------

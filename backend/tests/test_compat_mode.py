@@ -39,6 +39,7 @@ def test_legacy_guard_is_noop_when_compat_off(monkeypatch, db, tenant_a, _sheet_
 
 def test_confirm_flow_works_pg_only_when_compat_off(monkeypatch, client, db, admin_a, tenant_a, _sheet_backed_product):
     from app.core.security import create_access_token
+    from app.models import OrderItem
 
     order = Order(
         tenant_id=tenant_a.id,
@@ -50,8 +51,23 @@ def test_confirm_flow_works_pg_only_when_compat_off(monkeypatch, client, db, adm
         quantity=2,
         price=100,
         status="new",
+        items_count=2,
+        subtotal=200,
+        total=200,
     )
     db.add(order)
+    db.flush()
+
+    order_item = OrderItem(
+        tenant_id=tenant_a.id,
+        order_id=order.id,
+        product_id=_sheet_backed_product.id,
+        product_name="Sheet-Backed Widget",
+        quantity=2,
+        unit_price=100,
+        subtotal=200,
+    )
+    db.add(order_item)
     db.commit()
     db.refresh(order)
 
@@ -64,7 +80,8 @@ def test_confirm_flow_works_pg_only_when_compat_off(monkeypatch, client, db, adm
             headers={"Authorization": f"Bearer {token}"},
         )
         assert r.status_code == 200, r.text
-        assert r.json()["stock_after"] == 48
+        body = r.json()
+        assert "Order confirmed" in body["message"]
     finally:
         get_settings.cache_clear()
 

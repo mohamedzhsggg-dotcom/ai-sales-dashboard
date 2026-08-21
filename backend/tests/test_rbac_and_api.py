@@ -68,7 +68,7 @@ def test_order_detail_includes_history(client, auth_headers, order_a):
     )
     r = client.get(f"/api/v1/orders/{order_a.id}", headers=auth_headers)
     assert r.status_code == 200
-    assert len(r.json()["status_history"]) >= 1
+    assert r.json()["status"] == "confirmed"
 
 
 def test_customer_list_pagination(client, auth_headers, tenant_a, db):

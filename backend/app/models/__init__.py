@@ -174,15 +174,25 @@ class Order(Base):
     quantity = Column(Integer, default=1)
     price = Column(Integer)
     delivery_method = Column(String(50))  # home | office
-    status = Column(String(50), default="new", index=True)  # new | confirmed | ...
-    source_channel = Column(String(20))  # facebook | instagram | comment
+    status = Column(String(50), default="new", index=True)
+    source_channel = Column(String(20))
     sheet_row = Column(Integer)
     synced_hash = Column(String(64))
+    subtotal = Column(Integer, default=0)
+    shipping_fee = Column(Integer, default=0)
+    total = Column(Integer, default=0)
+    currency = Column(String(10), default="DZD")
+    items_count = Column(Integer, default=1)
+    notes = Column(Text)
+    cancel_reason = Column(Text)
+    cancel_note = Column(Text)
+    has_return = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     customer = relationship("Customer", back_populates="orders")
     status_history = relationship("OrderStatusHistory", back_populates="order")
+    items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
 
 
 class OrderStatusHistory(Base):
@@ -196,6 +206,43 @@ class OrderStatusHistory(Base):
     changed_at = Column(DateTime, default=datetime.utcnow)
 
     order = relationship("Order", back_populates="status_history")
+
+
+class OrderItem(Base):
+    __tablename__ = "order_items"
+
+    id = Column(Integer, primary_key=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False, index=True)
+    order_id = Column(Integer, ForeignKey("orders.id", ondelete="CASCADE"), nullable=False, index=True)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=True)
+    product_name = Column(String(255))
+    variant_id = Column(Integer, ForeignKey("product_variants.id"), nullable=True)
+    variant_options = Column(JSONB)
+    sku = Column(String(100))
+    quantity = Column(Integer, nullable=False)
+    unit_price = Column(Integer, nullable=False)
+    subtotal = Column(Integer, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    order = relationship("Order", back_populates="items")
+
+
+class Return(Base):
+    __tablename__ = "returns"
+
+    id = Column(Integer, primary_key=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False, index=True)
+    order_id = Column(Integer, ForeignKey("orders.id"), nullable=False, index=True)
+    order_item_id = Column(Integer, ForeignKey("order_items.id"), nullable=True)
+    variant_id = Column(Integer, ForeignKey("product_variants.id"), nullable=True)
+    quantity = Column(Integer, nullable=False)
+    reason = Column(Text)
+    refund_amount = Column(Integer, default=0)
+    status = Column(String(50), default="pending", index=True)
+    note = Column(Text)
+    created_by = Column(Integer, ForeignKey("users.id"))
+    created_at = Column(DateTime, default=datetime.utcnow)
+    processed_at = Column(DateTime)
 
 
 class InventoryEvent(Base):
