@@ -111,7 +111,7 @@ def test_health_and_ready(client):
     assert r.json()["checks"]["database"] == "ok"
 
 
-def test_metrics_endpoint(client):
-    r = client.get("/metrics")
+def test_metrics_endpoint(client, auth_headers):
+    r = client.get("/metrics", headers=auth_headers)
     assert r.status_code == 200
     assert "http_requests_total" in r.text

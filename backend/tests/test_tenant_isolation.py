@@ -60,11 +60,13 @@ def test_cannot_fetch_other_tenant_customer(client, auth_headers, tenant_b, db):
 
 
 def test_products_are_tenant_scoped(client, auth_headers, product_a, product_b):
-    r = client.get("/api/v1/products", headers=auth_headers)
+    r = client.get(f"/api/v1/products?search={product_a.name}", headers=auth_headers)
     assert r.status_code == 200
     names = [p["name"] for p in r.json()["items"]]
     assert product_a.name in names
-    assert product_b.name not in names, "tenant B product leaked"
+    r2 = client.get(f"/api/v1/products?search={product_b.name}", headers=auth_headers)
+    names2 = [p["name"] for p in r2.json()["items"]]
+    assert product_b.name not in names2, "tenant B product leaked"
 
 
 def test_cannot_fetch_other_tenant_product(client, auth_headers, product_b):
@@ -75,9 +77,9 @@ def test_cannot_fetch_other_tenant_product(client, auth_headers, product_b):
 def test_inventory_is_tenant_scoped(client, auth_headers, product_a, product_b):
     r = client.get("/api/v1/inventory", headers=auth_headers)
     assert r.status_code == 200
-    names = [p["name"] for p in r.json()]
-    assert product_a.name in names
-    assert product_b.name not in names, "tenant B inventory leaked"
+    ids = [p["id"] for p in r.json()]
+    assert product_a.id in ids
+    assert product_b.id not in ids, "tenant B inventory leaked"
 
 
 def test_cannot_update_other_tenant_stock(client, auth_headers, product_b):

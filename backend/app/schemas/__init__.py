@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any, Optional
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
 # ---------- Auth ----------
@@ -242,6 +242,17 @@ class ProductOut(BaseModel):
     low_stock: bool = False
     created_at: datetime
     updated_at: datetime
+
+    @field_validator("sizes", "colors", mode="before")
+    @classmethod
+    def _parse_json_strings(cls, v):
+        if isinstance(v, str):
+            try:
+                import json as _json
+                return _json.loads(v)
+            except (ValueError, TypeError):
+                return []
+        return v
 
     class Config:
         from_attributes = True
