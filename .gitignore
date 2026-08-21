@@ -1,7 +1,10 @@
 # Env & secrets
 .env
-*.env.local
+.env.production
+.env.local
 backend/.env
+backend/.env.production
+frontend/.env.production
 
 # Python
 __pycache__/
@@ -38,3 +41,10 @@ logs/
 
 # Backups (project-local artifacts; canonical backups live in temp backup dir)
 backups/
+
+# Docker
+*.docker-volumes/
+
+# SSL certificates (NEVER commit)
+nginx/certs/*.pem
+nginx/certs/*.key
