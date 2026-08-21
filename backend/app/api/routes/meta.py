@@ -54,7 +54,10 @@ async def meta_webhook_handler(request: Request, db: Session = Depends(get_db)):
     signature = request.headers.get("X-Hub-Signature-256", "")
 
     config = MetaConfig.from_env()
-    if config.app_secret and not verify_webhook_signature(signature, body, config.app_secret):
+    if not config.app_secret:
+        logger.error("META_APP_SECRET not configured - rejecting webhook")
+        raise HTTPException(status_code=503, detail="Meta integration not configured")
+    if not verify_webhook_signature(signature, body, config.app_secret):
         raise HTTPException(status_code=403, detail="Invalid signature")
 
     try:
@@ -122,7 +125,4 @@ def _resolve_tenant_for_page(db: Session, page_id: Optional[str]) -> Optional[in
     tenant = db.query(Tenant).filter(
         Tenant.config["meta_pages"].astext.contains(page_id)
     ).first()
-    if tenant:
-        return tenant.id
-    tenant = db.query(Tenant).first()
     return tenant.id if tenant else None

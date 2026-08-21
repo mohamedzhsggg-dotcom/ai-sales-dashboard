@@ -9,7 +9,6 @@ import hashlib
 import hmac
 import json
 import logging
-import os
 from dataclasses import dataclass
 from typing import Optional
 
@@ -29,11 +28,13 @@ class MetaConfig:
 
     @classmethod
     def from_env(cls) -> "MetaConfig":
+        from app.config import get_settings
+        settings = get_settings()
         return cls(
-            app_secret=os.getenv("META_APP_SECRET", ""),
-            verify_token=os.getenv("META_VERIFY_TOKEN", ""),
-            page_access_token=os.getenv("META_PAGE_ACCESS_TOKEN", ""),
-            ig_account_id=os.getenv("META_IG_ACCOUNT_ID", ""),
+            app_secret=settings.META_APP_SECRET,
+            verify_token=settings.META_VERIFY_TOKEN,
+            page_access_token=settings.META_PAGE_ACCESS_TOKEN,
+            ig_account_id=settings.META_IG_ACCOUNT_ID,
         )
 
 

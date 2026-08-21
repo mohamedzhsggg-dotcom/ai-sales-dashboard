@@ -63,10 +63,10 @@ def test_access_token_rejected_as_refresh(client, admin_a):
     assert r.status_code == 401
 
 
-def test_logout_revokes_refresh(client, admin_a):
+def test_logout_revokes_refresh(client, admin_a, auth_headers):
     login = client.post("/api/v1/auth/login", json={"email": admin_a.email, "password": "Passw0rd!"})
     refresh_token = login.json()["refresh_token"]
-    assert client.post("/api/v1/auth/logout", json={"refresh_token": refresh_token}).status_code == 200
+    assert client.post("/api/v1/auth/logout", json={"refresh_token": refresh_token}, headers=auth_headers).status_code == 200
     r = client.post("/api/v1/auth/refresh", json={"refresh_token": refresh_token})
     assert r.status_code == 401
 

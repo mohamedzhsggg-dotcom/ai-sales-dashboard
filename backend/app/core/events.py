@@ -20,6 +20,12 @@ Handler = Callable[[str, dict[str, Any]], None]
 ORDER_STATUS_CHANGED = "order.status.changed"
 STOCK_CHANGED = "stock.changed"
 ORDER_CONFIRMED = "order.confirmed"
+RETURN_CREATED = "return.created"
+RETURN_APPROVED = "return.approved"
+RETURN_REJECTED = "return.rejected"
+CONVERSATION_CREATED = "conversation.created"
+COMMENT_RECEIVED = "comment.received"
+COMMENT_REPLIED = "comment.replied"
 
 
 class EventBus:

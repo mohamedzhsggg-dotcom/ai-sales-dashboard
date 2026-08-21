@@ -8,8 +8,8 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     APP_NAME: str = "AI Sales Dashboard"
-    APP_ENV: str = "development"
-    DEBUG: bool = True
+    APP_ENV: str = "production"
+    DEBUG: bool = False
     API_PREFIX: str = "/api/v1"
 
     # Security
@@ -73,6 +73,17 @@ class Settings(BaseSettings):
     # Feature toggles
     RETURNS_ENABLED: bool = True
     SHIPMENTS_ENABLED: bool = True
+
+    # AI Assistant
+    AI_PROVIDER: str = "mock"  # "mock" or "openai"
+    OPENAI_API_KEY: str = ""
+    OPENAI_MODEL: str = "gpt-4o-mini"
+
+    # Meta / Facebook / Instagram
+    META_APP_SECRET: str = ""
+    META_VERIFY_TOKEN: str = ""
+    META_PAGE_ACCESS_TOKEN: str = ""
+    META_IG_ACCOUNT_ID: str = ""
 
 
 @lru_cache

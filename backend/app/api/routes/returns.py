@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.core.context import ensure_tenant, tenant_query
-from app.core.events import bus
+from app.core.events import RETURN_CREATED, RETURN_APPROVED, RETURN_REJECTED, bus
 from app.core.rbac import require_permission
 from app.database import get_db
 from app.models import Order, OrderItem, Product, ProductVariant, Return, User
@@ -96,7 +96,7 @@ def create_return(
     db.commit()
     db.refresh(ret)
 
-    bus.publish("return_created", {"return_id": ret.id, "order_id": order.id, "tenant_id": user.tenant_id})
+    bus.publish(RETURN_CREATED, {"return_id": ret.id, "order_id": order.id, "tenant_id": user.tenant_id})
     return _return_to_out(ret)
 
 
@@ -128,7 +128,7 @@ def approve_return(
 
     db.commit()
     db.refresh(ret)
-    bus.publish("return_approved", {"return_id": ret.id, "order_id": ret.order_id, "tenant_id": user.tenant_id})
+    bus.publish(RETURN_APPROVED, {"return_id": ret.id, "order_id": ret.order_id, "tenant_id": user.tenant_id})
     return _return_to_out(ret)
 
 
@@ -152,5 +152,5 @@ def reject_return(
 
     db.commit()
     db.refresh(ret)
-    bus.publish("return_rejected", {"return_id": ret.id, "order_id": ret.order_id, "tenant_id": user.tenant_id})
+    bus.publish(RETURN_REJECTED, {"return_id": ret.id, "order_id": ret.order_id, "tenant_id": user.tenant_id})
     return _return_to_out(ret)

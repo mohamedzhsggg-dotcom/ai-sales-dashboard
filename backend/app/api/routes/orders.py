@@ -7,6 +7,7 @@ Multi-item order management with status machine, confirmation
 from __future__ import annotations
 
 import uuid
+from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -474,7 +475,7 @@ def approve_return(
         )
 
     ret.status = "completed"
-    ret.processed_at = __import__("datetime").datetime.utcnow()
+    ret.processed_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(ret)
     return ReturnOut(
@@ -502,7 +503,7 @@ def reject_return(
 
     ret.status = "rejected"
     ret.note = payload.note or ret.note
-    ret.processed_at = __import__("datetime").datetime.utcnow()
+    ret.processed_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(ret)
     return ReturnOut(

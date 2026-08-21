@@ -1,7 +1,7 @@
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
@@ -13,6 +13,7 @@ from app.middleware.idempotency import IdempotencyMiddleware
 from app.middleware.ratelimit import RateLimitMiddleware
 from app.database import engine
 from app.api.routes import ai, auth, audit, categories, conversations, customers, dashboard, health, inventory, media, meta, orders, products, returns, settings as settings_router, shipments, social
+from app.core.rbac import require_permission
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -28,6 +29,12 @@ register_legacy_subscribers()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Production security: refuse to start with default SECRET_KEY
+    if settings.APP_ENV == "production" and settings.SECRET_KEY == "change-me-in-production":
+        raise RuntimeError(
+            "Refusing to start in production with default SECRET_KEY. "
+            "Set SECRET_KEY environment variable to a secure random string."
+        )
     # Schema is managed by Alembic migrations (backend/migrations). Here we only
     # verify the database is reachable; tables are NOT created on startup.
     with engine.connect() as conn:
@@ -50,8 +57,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "Idempotency-Key"],
 )
 register_error_handlers(app)
 
@@ -75,5 +82,5 @@ app.include_router(health.router)
 
 
 @app.get("/metrics")
-def metrics():
+def metrics(user=Depends(require_permission("dashboard.manage"))):
     return metrics_response()

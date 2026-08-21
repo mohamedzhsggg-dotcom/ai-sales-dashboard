@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Optional
@@ -79,13 +78,15 @@ class OpenAIProvider(BaseAIProvider):
 
 
 def get_ai_provider() -> BaseAIProvider:
-    provider = os.getenv("AI_PROVIDER", "mock").lower()
+    from app.config import get_settings
+    settings = get_settings()
+    provider = settings.AI_PROVIDER.lower()
     if provider == "openai":
-        api_key = os.getenv("OPENAI_API_KEY", "")
+        api_key = settings.OPENAI_API_KEY
         if not api_key:
             logger.warning("OPENAI_API_KEY not set, falling back to mock provider")
             return MockAIProvider()
-        return OpenAIProvider(api_key=api_key, model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"))
+        return OpenAIProvider(api_key=api_key, model=settings.OPENAI_MODEL)
     return MockAIProvider()
 
 

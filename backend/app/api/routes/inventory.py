@@ -6,6 +6,7 @@ All mutations are transactional and go through StockService.
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -225,7 +226,7 @@ def reconcile_stock_count(
             )
 
     sc.reconciled = True
-    sc.counted_at = sc.counted_at or __import__("datetime").datetime.utcnow()
+    sc.counted_at = sc.counted_at or datetime.now(timezone.utc)
     db.commit()
     db.refresh(sc)
     return StockCountOut(

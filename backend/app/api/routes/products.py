@@ -15,7 +15,6 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.core.context import ensure_tenant, tenant_query
 from app.core.rbac import require_permission
-from app.core.security import get_current_user
 from app.database import get_db
 from app.models import Category, Product, ProductVariant, User
 from app.schemas import (

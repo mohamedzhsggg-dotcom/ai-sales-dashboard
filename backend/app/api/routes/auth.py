@@ -81,9 +81,10 @@ def refresh(payload: RefreshRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/logout")
-def logout(payload: RefreshRequest, db: Session = Depends(get_db)):
+def logout(payload: RefreshRequest, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     sess = db.query(SessionModel).filter(
         SessionModel.refresh_token_hash == hash_refresh_token(payload.refresh_token),
+        SessionModel.user_id == user.id,
     ).delete()
     db.commit()
     return {"ok": True}
@@ -97,6 +98,8 @@ def me(user: User = Depends(get_current_user)):
 @router.post("/setup")
 def setup(payload: SetupRequest, db: Session = Depends(get_db)):
     """Bootstrap the first admin user and default tenant (dev only)."""
+    if settings.APP_ENV == "production":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Setup not available in production")
     if db.query(User).count() > 0:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Already initialized")
     tenant_id = _get_default_tenant_id(db)
