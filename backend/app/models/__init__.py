@@ -187,12 +187,18 @@ class Order(Base):
     cancel_reason = Column(Text)
     cancel_note = Column(Text)
     has_return = Column(Boolean, default=False)
+    # Courier / shipment fields
+    courier_name = Column(String(50))
+    tracking_number = Column(String(100), index=True)
+    shipped_at = Column(DateTime)
+    delivered_at = Column(DateTime)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     customer = relationship("Customer", back_populates="orders")
     status_history = relationship("OrderStatusHistory", back_populates="order")
     items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
+    shipments = relationship("Shipment", back_populates="order", cascade="all, delete-orphan")
 
 
 class OrderStatusHistory(Base):
@@ -359,3 +365,41 @@ class RolePermission(Base):
     id = Column(Integer, primary_key=True)
     role = Column(String(50), nullable=False, index=True)
     permission_id = Column(Integer, ForeignKey("permissions.id"), nullable=False, index=True)
+
+
+class Shipment(Base):
+    __tablename__ = "shipments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False, index=True)
+    order_id = Column(Integer, ForeignKey("orders.id"), nullable=False, index=True)
+    courier_name = Column(String(50), nullable=False, index=True)
+    tracking_number = Column(String(100), index=True)
+    status = Column(String(50), default="pending", index=True)
+    cod_amount = Column(Integer, default=0)
+    shipping_fee = Column(Integer, default=0)
+    delivery_method = Column(String(50))
+    notes = Column(Text)
+    raw_response = Column(JSONB)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    shipped_at = Column(DateTime)
+    delivered_at = Column(DateTime)
+
+    order = relationship("Order", back_populates="shipments")
+    tracking_events = relationship("ShipmentTracking", back_populates="shipment", cascade="all, delete-orphan")
+
+
+class ShipmentTracking(Base):
+    __tablename__ = "shipment_tracking"
+
+    id = Column(Integer, primary_key=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False, index=True)
+    shipment_id = Column(Integer, ForeignKey("shipments.id", ondelete="CASCADE"), nullable=False, index=True)
+    status = Column(String(50), nullable=False)
+    description = Column(Text)
+    location = Column(String(255))
+    courier_raw_status = Column(String(100))
+    recorded_at = Column(DateTime, default=datetime.utcnow)
+
+    shipment = relationship("Shipment", back_populates="tracking_events")

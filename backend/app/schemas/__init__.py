@@ -455,3 +455,54 @@ class ProductMediaUpdate(BaseModel):
     sort_order: Optional[int] = None
     is_primary: Optional[bool] = None
     variant_id: Optional[int] = None
+
+
+# ---------- Shipments ----------
+class ShipmentTrackingOut(BaseModel):
+    id: int
+    status: str
+    description: Optional[str] = None
+    location: Optional[str] = None
+    courier_raw_status: Optional[str] = None
+    recorded_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class ShipmentOut(BaseModel):
+    id: int
+    tenant_id: int
+    order_id: int
+    courier_name: str
+    tracking_number: Optional[str] = None
+    status: str
+    cod_amount: int = 0
+    shipping_fee: int = 0
+    delivery_method: Optional[str] = None
+    notes: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+    shipped_at: Optional[datetime] = None
+    delivered_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class ShipmentDetail(ShipmentOut):
+    tracking_events: list[ShipmentTrackingOut] = []
+
+
+class ShipmentCreate(BaseModel):
+    order_id: int
+    courier_name: str = "yalidine"
+    delivery_method: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class ShipmentListResponse(BaseModel):
+    items: list[ShipmentOut]
+    total: int
+    page: int
+    limit: int

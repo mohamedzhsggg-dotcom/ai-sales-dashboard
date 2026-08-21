@@ -31,6 +31,8 @@ TENANT_SCOPED_MODELS = (
     "ProductMedia",
     "StockCount",
     "Return",
+    "Shipment",
+    "ShipmentTracking",
 )
 
 
