@@ -24,6 +24,7 @@ PERMISSIONS = frozenset(
         "orders.edit",
         "orders.cancel",
         "orders.return",
+        "orders.manage",
         # Customers
         "customers.read",
         # Products, categories, media & inventory
@@ -41,6 +42,7 @@ PERMISSIONS = frozenset(
         # System
         "audit.read",
         "dashboard.read",
+        "dashboard.manage",
         "settings.manage",
     }
 )
@@ -56,6 +58,7 @@ ROLE_PERMISSIONS: dict[str, set[str]] = {
         "orders.edit",
         "orders.cancel",
         "orders.return",
+        "orders.manage",
         "customers.read",
         "products.read",
         "products.manage",

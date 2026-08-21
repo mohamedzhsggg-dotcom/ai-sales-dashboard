@@ -73,6 +73,7 @@ class Customer(Base):
     wilaya = Column(String(100))
     commune = Column(String(100))
     platform = Column(String(20))  # facebook | instagram
+    external_id = Column(String(255), index=True)
     sender_ids = Column(JSONB, nullable=False, server_default="{}")
     synced_hash = Column(String(64))
     created_at = Column(DateTime, default=datetime.utcnow)
