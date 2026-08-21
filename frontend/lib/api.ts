@@ -62,6 +62,8 @@ export interface Customer {
   platform?: string | null;
   created_at: string;
   order_count?: number;
+  total_spent?: number;
+  last_order_at?: string | null;
 }
 
 export interface Product {
@@ -126,13 +128,91 @@ export interface Category {
   created_at: string;
 }
 
+export interface Conversation {
+  id: number;
+  tenant_id: number;
+  customer_id?: number | null;
+  platform: string;
+  external_conversation_id?: string | null;
+  external_user_id?: string | null;
+  subject?: string | null;
+  status: string;
+  last_message_at?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ConversationDetail extends Conversation {
+  messages?: Message[];
+  customer_name?: string | null;
+  customer_phone?: string | null;
+}
+
+export interface Message {
+  id: number;
+  tenant_id: number;
+  conversation_id: number;
+  direction: string;
+  content: string;
+  platform_message_id?: string | null;
+  external_user_id?: string | null;
+  extra_data?: Record<string, unknown> | null;
+  created_at: string;
+}
+
+export interface SocialComment {
+  id: number;
+  tenant_id: number;
+  platform: string;
+  post_id: string;
+  comment_id: string;
+  external_user_id?: string | null;
+  external_username?: string | null;
+  comment_text?: string | null;
+  product_id?: number | null;
+  product_name?: string | null;
+  resolved: boolean;
+  replied: boolean;
+  reply_text?: string | null;
+  created_at: string;
+  processed_at?: string | null;
+}
+
+export interface PostMapping {
+  id: number;
+  tenant_id: number;
+  platform: string;
+  post_id: string;
+  product_id?: number | null;
+  product_name?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Return {
+  id: number;
+  tenant_id: number;
+  order_id: number;
+  status: string;
+  reason?: string | null;
+  note?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface DashboardStats {
   new_orders: number;
   confirmed_orders: number;
+  shipped_orders: number;
+  delivered_orders: number;
+  cancelled_orders: number;
+  returned_orders: number;
   total_revenue: number;
+  total_products: number;
   low_stock_count: number;
   by_wilaya: { wilaya: string; count: number }[];
   recent_orders: Order[];
+  recent_activity: { id: number; action: string; entity_type?: string; entity_id?: string; created_at?: string }[];
 }
 
 export interface Page<T> {
@@ -259,4 +339,40 @@ export const api = {
     return request<Page<Category>>(`/categories?${qs.toString()}`);
   },
   categoryTree: () => request<Category[]>("/categories/tree"),
+
+  // Conversations
+  conversations: (params: Record<string, string | number | undefined> = {}) => {
+    const qs = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== "") qs.set(k, String(v));
+    return request<Page<Conversation>>(`/conversations?${qs.toString()}`);
+  },
+  conversation: (id: number) => request<ConversationDetail>(`/conversations/${id}`),
+  createConversation: (data: { platform: string; subject?: string; customer_id?: number }) =>
+    request<ConversationDetail>("/conversations", { method: "POST", body: JSON.stringify(data) }),
+  addMessage: (conversationId: number, content: string, direction: string = "outbound") =>
+    request<Message>(`/conversations/${conversationId}/messages`, {
+      method: "POST", body: JSON.stringify({ content, direction }),
+    }),
+
+  // Social Comments
+  comments: (params: Record<string, string | number | boolean | undefined> = {}) => {
+    const qs = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== "") qs.set(k, String(v));
+    return request<Page<SocialComment>>(`/comments?${qs.toString()}`);
+  },
+  replyToComment: (commentId: number, replyText: string) =>
+    request<SocialComment>(`/comments/${commentId}/reply`, {
+      method: "PATCH", body: JSON.stringify({ reply_text: replyText }),
+    }),
+
+  // Post Mappings
+  postMappings: (params: Record<string, string | number | undefined> = {}) => {
+    const qs = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== "") qs.set(k, String(v));
+    return request<Page<PostMapping>>(`/post-mappings?${qs.toString()}`);
+  },
+  resolvePost: (platform: string, postId: string) =>
+    request<{ resolved: boolean; product_id?: number; product_name?: string }>(
+      `/resolve-post?platform=${platform}&post_id=${postId}`
+    ),
 };

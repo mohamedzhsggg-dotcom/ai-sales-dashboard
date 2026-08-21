@@ -29,6 +29,7 @@ class UserOut(BaseModel):
     id: int
     email: EmailStr
     full_name: Optional[str] = None
+    phone: Optional[str] = None
     role: str
     tenant_id: int
 
@@ -134,6 +135,8 @@ class CustomerOut(BaseModel):
     platform: Optional[str] = None
     created_at: datetime
     order_count: Optional[int] = 0
+    total_spent: Optional[int] = 0
+    last_order_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
@@ -359,10 +362,16 @@ class ReturnAction(BaseModel):
 class DashboardStats(BaseModel):
     new_orders: int
     confirmed_orders: int
+    shipped_orders: int = 0
+    delivered_orders: int = 0
+    cancelled_orders: int = 0
+    returned_orders: int = 0
     total_revenue: int
+    total_products: int = 0
     low_stock_count: int
     by_wilaya: list[dict] = []
     recent_orders: list[OrderOut] = []
+    recent_activity: list[dict] = []
 
 
 # ---------- Audit ----------
@@ -506,3 +515,141 @@ class ShipmentListResponse(BaseModel):
     total: int
     page: int
     limit: int
+
+
+# ---------- Conversations ----------
+class MessageOut(BaseModel):
+    id: int
+    tenant_id: int
+    conversation_id: int
+    direction: str
+    content: str
+    platform_message_id: Optional[str] = None
+    external_user_id: Optional[str] = None
+    extra_data: Optional[dict] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class ConversationOut(BaseModel):
+    id: int
+    tenant_id: int
+    customer_id: Optional[int] = None
+    platform: str
+    external_conversation_id: Optional[str] = None
+    external_user_id: Optional[str] = None
+    subject: Optional[str] = None
+    status: str = "open"
+    last_message_at: Optional[datetime] = None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class ConversationDetail(ConversationOut):
+    messages: list[MessageOut] = []
+    customer_name: Optional[str] = None
+    customer_phone: Optional[str] = None
+
+
+class ConversationCreate(BaseModel):
+    platform: str = Field(..., max_length=20)
+    external_conversation_id: Optional[str] = Field(default=None, max_length=255)
+    external_user_id: Optional[str] = Field(default=None, max_length=255)
+    customer_id: Optional[int] = None
+    subject: Optional[str] = Field(default=None, max_length=255)
+
+
+class MessageCreate(BaseModel):
+    content: str = Field(..., min_length=1, max_length=5000)
+    direction: str = Field(default="outbound", pattern="^(inbound|outbound)$")
+    platform_message_id: Optional[str] = Field(default=None, max_length=255)
+    external_user_id: Optional[str] = Field(default=None, max_length=255)
+    extra_data: Optional[dict] = None
+
+
+class ConversationListResponse(BaseModel):
+    items: list[ConversationOut]
+    total: int
+    page: int
+    limit: int
+
+
+# ---------- Social Comments ----------
+class SocialCommentOut(BaseModel):
+    id: int
+    tenant_id: int
+    platform: str
+    post_id: str
+    comment_id: str
+    external_user_id: Optional[str] = None
+    external_username: Optional[str] = None
+    comment_text: Optional[str] = None
+    product_id: Optional[int] = None
+    product_name: Optional[str] = None
+    resolved: bool = False
+    replied: bool = False
+    reply_text: Optional[str] = None
+    created_at: datetime
+    processed_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class SocialCommentCreate(BaseModel):
+    platform: str = Field(..., max_length=20)
+    post_id: str = Field(..., max_length=100)
+    comment_id: str = Field(..., max_length=100)
+    external_user_id: Optional[str] = Field(default=None, max_length=255)
+    external_username: Optional[str] = Field(default=None, max_length=255)
+    comment_text: Optional[str] = None
+
+
+class SocialCommentListResponse(BaseModel):
+    items: list[SocialCommentOut]
+    total: int
+    page: int
+    limit: int
+
+
+# ---------- Post Product Mappings ----------
+class PostProductMappingOut(BaseModel):
+    id: int
+    tenant_id: int
+    platform: str
+    post_id: str
+    product_id: Optional[int] = None
+    product_name: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class PostProductMappingCreate(BaseModel):
+    platform: str = Field(..., max_length=20)
+    post_id: str = Field(..., max_length=100)
+    product_id: Optional[int] = None
+    product_name: Optional[str] = Field(default=None, max_length=255)
+
+
+class PostProductMappingListResponse(BaseModel):
+    items: list[PostProductMappingOut]
+    total: int
+    page: int
+    limit: int
+
+
+# ---------- Merchant Registration ----------
+class MerchantRegisterRequest(BaseModel):
+    business_name: str = Field(..., min_length=2, max_length=255)
+    email: EmailStr
+    password: str = Field(..., min_length=8, max_length=128)
+    full_name: str = Field(..., min_length=2, max_length=255)
+    phone: Optional[str] = Field(default=None, max_length=50)

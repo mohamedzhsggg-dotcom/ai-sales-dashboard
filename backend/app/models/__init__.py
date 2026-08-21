@@ -43,6 +43,7 @@ class User(Base):
     email = Column(String(255), unique=True, nullable=False, index=True)
     password_hash = Column(String(255), nullable=False)
     full_name = Column(String(255))
+    phone = Column(String(50))
     role = Column(String(50), default="agent")  # admin | agent | support
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -78,6 +79,7 @@ class Customer(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     orders = relationship("Order", back_populates="customer")
+    conversations = relationship("Conversation", back_populates="customer")
 
 
 class Product(Base):
@@ -296,15 +298,23 @@ class SyncRun(Base):
 
 class PostProductMapping(Base):
     __tablename__ = "post_product_mappings"
+    __table_args__ = (
+        sa.UniqueConstraint("tenant_id", "platform", "post_id", name="uq_post_product_mapping"),
+    )
 
     id = Column(Integer, primary_key=True)
     tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False, index=True)
+    platform = Column(String(20), nullable=False, index=True)  # facebook | instagram
+    post_id = Column(String(100), nullable=False, index=True)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=True, index=True)
+    product_name = Column(String(255))
     fb_post_id = Column(String(100), index=True)
     ig_post_id = Column(String(100), index=True)
-    product_name = Column(String(255))
     synced_hash = Column(String(64))
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    product = relationship("Product")
 
 
 class ProductMedia(Base):
@@ -403,3 +413,59 @@ class ShipmentTracking(Base):
     recorded_at = Column(DateTime, default=datetime.utcnow)
 
     shipment = relationship("Shipment", back_populates="tracking_events")
+
+
+class Conversation(Base):
+    __tablename__ = "conversations"
+
+    id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False, index=True)
+    customer_id = Column(Integer, ForeignKey("customers.id"), nullable=True, index=True)
+    platform = Column(String(20), nullable=False)  # facebook | instagram
+    external_conversation_id = Column(String(255), index=True)
+    external_user_id = Column(String(255), index=True)
+    subject = Column(String(255))
+    status = Column(String(20), default="open", index=True)  # open | closed | archived
+    last_message_at = Column(DateTime)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    customer = relationship("Customer", back_populates="conversations")
+    messages = relationship("Message", back_populates="conversation", cascade="all, delete-orphan")
+
+
+class Message(Base):
+    __tablename__ = "messages"
+
+    id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False, index=True)
+    conversation_id = Column(Integer, ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False, index=True)
+    direction = Column(String(10), nullable=False)  # inbound | outbound
+    content = Column(Text, nullable=False)
+    platform_message_id = Column(String(255))
+    external_user_id = Column(String(255))
+    extra_data = Column("metadata", JSONB)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    conversation = relationship("Conversation", back_populates="messages")
+
+
+class SocialComment(Base):
+    __tablename__ = "social_comments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False, index=True)
+    platform = Column(String(20), nullable=False, index=True)  # facebook | instagram
+    post_id = Column(String(100), nullable=False, index=True)
+    comment_id = Column(String(100), nullable=False, unique=True)
+    external_user_id = Column(String(255), index=True)
+    external_username = Column(String(255))
+    comment_text = Column(Text)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=True, index=True)
+    resolved = Column(Boolean, default=False, index=True)
+    replied = Column(Boolean, default=False)
+    reply_text = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    processed_at = Column(DateTime)
+
+    product = relationship("Product")

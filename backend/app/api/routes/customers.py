@@ -35,16 +35,33 @@ def list_customers(
     total = q.count()
     customers = q.order_by(Customer.updated_at.desc()).offset((page - 1) * limit).limit(limit).all()
 
+    customer_ids = [c.id for c in customers]
     order_counts = dict(
         db.query(Order.customer_id, func.count(Order.id))
-        .filter(Order.tenant_id == user.tenant_id, Order.customer_id.in_([c.id for c in customers]))
+        .filter(Order.tenant_id == user.tenant_id, Order.customer_id.in_(customer_ids))
         .group_by(Order.customer_id)
         .all()
     )
+    total_spent = dict(
+        db.query(Order.customer_id, func.coalesce(func.sum(Order.price * Order.quantity), 0))
+        .filter(Order.tenant_id == user.tenant_id, Order.customer_id.in_(customer_ids),
+                Order.status.in_(["confirmed", "delivered"]))
+        .group_by(Order.customer_id)
+        .all()
+    )
+    last_orders = dict(
+        db.query(Order.customer_id, func.max(Order.created_at))
+        .filter(Order.tenant_id == user.tenant_id, Order.customer_id.in_(customer_ids))
+        .group_by(Order.customer_id)
+        .all()
+    )
+
     items = []
     for c in customers:
         out = CustomerOut.model_validate(c)
         out.order_count = order_counts.get(c.id, 0)
+        out.total_spent = total_spent.get(c.id, 0)
+        out.last_order_at = last_orders.get(c.id)
         items.append(out)
     return CustomerListResponse(items=items, total=total, page=page, limit=limit)
 
@@ -59,11 +76,17 @@ def get_customer(
     if not ensure_tenant(customer, user.tenant_id):
         raise HTTPException(status_code=404, detail="Customer not found")
     detail = CustomerDetail.model_validate(customer)
-    detail.orders = [
-        OrderOut.model_validate(o)
-        for o in tenant_query(db, Order, user.tenant_id)
+    orders = list(
+        tenant_query(db, Order, user.tenant_id)
         .filter(Order.customer_id == customer.id)
         .order_by(Order.created_at.desc())
         .all()
-    ]
+    )
+    detail.orders = [OrderOut.model_validate(o) for o in orders]
+    detail.order_count = len(orders)
+    detail.total_spent = sum(
+        o.price * o.quantity for o in orders if o.status in ("confirmed", "delivered")
+    )
+    if orders:
+        detail.last_order_at = max(o.created_at for o in orders)
     return detail

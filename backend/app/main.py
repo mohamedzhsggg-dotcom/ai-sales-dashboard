@@ -12,7 +12,7 @@ from app.core.monitoring import MetricsMiddleware, init_sentry, metrics_response
 from app.middleware.idempotency import IdempotencyMiddleware
 from app.middleware.ratelimit import RateLimitMiddleware
 from app.database import engine
-from app.api.routes import auth, audit, categories, customers, dashboard, health, inventory, media, orders, products, shipments
+from app.api.routes import auth, audit, categories, conversations, customers, dashboard, health, inventory, media, orders, products, shipments, social
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -65,6 +65,8 @@ app.include_router(inventory.router, prefix=settings.API_PREFIX)
 app.include_router(dashboard.router, prefix=settings.API_PREFIX)
 app.include_router(audit.router, prefix=settings.API_PREFIX)
 app.include_router(shipments.router, prefix=settings.API_PREFIX)
+app.include_router(conversations.router, prefix=settings.API_PREFIX)
+app.include_router(social.router, prefix=settings.API_PREFIX)
 app.include_router(health.router)
 
 

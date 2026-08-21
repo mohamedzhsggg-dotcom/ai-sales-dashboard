@@ -23,7 +23,12 @@ export default function DashboardPage() {
     ? [
         { label: "New orders", value: stats.new_orders, color: "bg-blue-50 text-blue-700" },
         { label: "Confirmed", value: stats.confirmed_orders, color: "bg-emerald-50 text-emerald-700" },
-        { label: "Total revenue", value: formatPrice(stats.total_revenue), color: "bg-slate-50 text-slate-700" },
+        { label: "Shipped", value: stats.shipped_orders, color: "bg-indigo-50 text-indigo-700" },
+        { label: "Delivered", value: stats.delivered_orders, color: "bg-green-50 text-green-700" },
+        { label: "Cancelled", value: stats.cancelled_orders, color: "bg-red-50 text-red-700" },
+        { label: "Returned", value: stats.returned_orders, color: "bg-amber-50 text-amber-700" },
+        { label: "Revenue", value: formatPrice(stats.total_revenue), color: "bg-slate-50 text-slate-700" },
+        { label: "Products", value: stats.total_products, color: "bg-purple-50 text-purple-700" },
         { label: "Low stock", value: stats.low_stock_count, color: "bg-amber-50 text-amber-700" },
       ]
     : [];
@@ -34,7 +39,7 @@ export default function DashboardPage() {
         <h2 className="text-xl font-semibold text-slate-800">Overview</h2>
         {error && <p className="text-sm text-red-600">{error}</p>}
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {cards.map((c) => (
             <div key={c.label} className="rounded-xl border border-slate-200 bg-white p-5">
               <p className="text-sm text-slate-500">{c.label}</p>
@@ -43,7 +48,7 @@ export default function DashboardPage() {
           ))}
         </div>
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="rounded-xl border border-slate-200 bg-white p-5">
             <h3 className="text-sm font-semibold text-slate-700">Orders by Wilaya</h3>
             <ul className="mt-3 space-y-2">
@@ -59,7 +64,7 @@ export default function DashboardPage() {
           <div className="rounded-xl border border-slate-200 bg-white p-5">
             <h3 className="text-sm font-semibold text-slate-700">Recent orders</h3>
             <ul className="mt-3 divide-y divide-slate-100">
-              {stats?.recent_orders.map((o) => (
+              {stats?.recent_orders.slice(0, 6).map((o) => (
                 <li key={o.id} className="flex items-center justify-between py-2 text-sm">
                   <div>
                     <span className="font-medium">{o.name || o.phone || "—"}</span>
@@ -75,6 +80,27 @@ export default function DashboardPage() {
             <Link href="/orders" className="mt-3 inline-block text-sm font-medium text-brand-600 hover:text-brand-700">
               View all orders →
             </Link>
+          </div>
+
+          <div className="rounded-xl border border-slate-200 bg-white p-5">
+            <h3 className="text-sm font-semibold text-slate-700">Recent Activity</h3>
+            <ul className="mt-3 space-y-2">
+              {stats?.recent_activity.slice(0, 8).map((a) => (
+                <li key={a.id} className="text-sm">
+                  <span className="font-medium text-slate-700">{a.action}</span>
+                  {a.entity_type && <span className="ml-1 text-slate-400">on {a.entity_type}</span>}
+                  {a.entity_id && <span className="ml-1 text-slate-300">#{a.entity_id}</span>}
+                  {a.created_at && (
+                    <span className="ml-2 text-xs text-slate-400">
+                      {new Date(a.created_at).toLocaleTimeString()}
+                    </span>
+                  )}
+                </li>
+              ))}
+              {(!stats?.recent_activity || stats.recent_activity.length === 0) && (
+                <p className="text-sm text-slate-400">No recent activity.</p>
+              )}
+            </ul>
           </div>
         </div>
       </div>

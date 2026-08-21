@@ -33,6 +33,9 @@ TENANT_SCOPED_MODELS = (
     "Return",
     "Shipment",
     "ShipmentTracking",
+    "Conversation",
+    "Message",
+    "SocialComment",
 )
 
 

@@ -14,9 +14,8 @@ from app.core.security import (
     verify_password,
 )
 from app.database import get_db
-from app.models import Session as SessionModel
-from app.models import User
-from app.schemas import LoginRequest, RefreshRequest, SetupRequest, TokenResponse, UserOut
+from app.models import Category, Session as SessionModel, Tenant, User
+from app.schemas import LoginRequest, MerchantRegisterRequest, RefreshRequest, SetupRequest, TokenResponse, UserOut
 
 settings = get_settings()
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -112,3 +111,38 @@ def setup(payload: SetupRequest, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(user)
     return {"ok": True, "user": UserOut.model_validate(user)}
+
+
+@router.post("/register", response_model=UserOut, status_code=201)
+def register(payload: MerchantRegisterRequest, db: Session = Depends(get_db)):
+    existing = db.query(User).filter(User.email == payload.email).first()
+    if existing:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
+
+    slug = payload.business_name.lower().replace(" ", "-").replace("'", "")[:50]
+    existing_tenant = db.query(Tenant).filter(Tenant.slug == slug).first()
+    if existing_tenant:
+        slug = f"{slug}-{int(datetime.now(timezone.utc).timestamp())}"
+
+    tenant = Tenant(name=payload.business_name, slug=slug, config={"sheets": {}})
+    db.add(tenant)
+    db.flush()
+
+    # Seed Uncategorized category
+    cat = Category(tenant_id=tenant.id, name="Uncategorized", parent_id=None)
+    db.add(cat)
+    db.flush()
+
+    # Create admin user
+    user = User(
+        tenant_id=tenant.id,
+        email=payload.email,
+        password_hash=hash_password(payload.password),
+        full_name=payload.full_name,
+        phone=payload.phone,
+        role="admin",
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return UserOut.model_validate(user)

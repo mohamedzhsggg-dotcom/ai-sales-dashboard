@@ -12,6 +12,9 @@ const navItems = [
   { href: "/products", label: "Products" },
   { href: "/categories", label: "Categories" },
   { href: "/inventory", label: "Inventory" },
+  { href: "/conversations", label: "Conversations" },
+  { href: "/comments", label: "Comments" },
+  { href: "/settings", label: "Settings" },
 ];
 
 export default function Shell({ children }: { children: React.ReactNode }) {
