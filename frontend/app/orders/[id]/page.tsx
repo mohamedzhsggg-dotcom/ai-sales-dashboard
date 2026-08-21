@@ -35,7 +35,7 @@ export default function OrderDetailPage() {
     setConfirmMsg(null);
     try {
       const res = await api.confirmOrder(id);
-      setConfirmMsg(`Order confirmed. Stock remaining: ${res.stock_after}`);
+      setConfirmMsg(res.message || "Order confirmed successfully");
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Confirmation failed");
@@ -113,20 +113,6 @@ export default function OrderDetailPage() {
             >
               {confirming ? "Confirming..." : "Confirm Order"}
             </button>
-          </div>
-        )}
-
-        {order.status_history && order.status_history.length > 0 && (
-          <div className="rounded-xl border border-slate-200 bg-white p-5">
-            <h3 className="text-sm font-semibold text-slate-700">Status history</h3>
-            <ol className="mt-3 space-y-2">
-              {order.status_history.map((h, i) => (
-                <li key={i} className="flex items-center gap-2 text-sm">
-                  <span className="font-medium">{h.from || "—"} → {h.to}</span>
-                  <span className="text-xs text-slate-400">{new Date(h.at).toLocaleString("fr-DZ")}</span>
-                </li>
-              ))}
-            </ol>
           </div>
         )}
       </div>

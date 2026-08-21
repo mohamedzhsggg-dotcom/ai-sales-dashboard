@@ -24,14 +24,33 @@ export interface Order {
   delivery_method?: string | null;
   status: string;
   source_channel?: string | null;
+  subtotal?: number;
+  total?: number;
+  items_count?: number;
+  courier_name?: string | null;
+  tracking_number?: string | null;
+  notes?: string | null;
   created_at: string;
   updated_at: string;
 }
 
 export interface OrderDetail extends Order {
   customer_id?: number | null;
-  sheet_row?: number | null;
-  status_history?: { from?: string; to: string; at: string }[];
+  items?: OrderItem[];
+  cancel_reason?: string | null;
+  cancel_note?: string | null;
+}
+
+export interface OrderItem {
+  id: number;
+  product_id?: number | null;
+  product_name?: string | null;
+  variant_id?: number | null;
+  variant_options?: Record<string, unknown>;
+  sku?: string | null;
+  quantity: number;
+  unit_price: number;
+  subtotal: number;
 }
 
 export interface Customer {
@@ -48,14 +67,63 @@ export interface Customer {
 export interface Product {
   id: number;
   name: string;
+  type?: string;
+  sku?: string | null;
+  description?: string | null;
+  status?: string;
+  category_id?: number | null;
   price?: number | null;
   sizes: unknown[];
   colors: unknown[];
   image_url?: string | null;
   stock: number;
+  low_stock_threshold?: number;
+  is_dashboard_managed?: boolean;
   fb_post_id?: string | null;
   ig_post_id?: string | null;
   updated_at: string;
+}
+
+export interface Shipment {
+  id: number;
+  tenant_id: number;
+  order_id: number;
+  courier_name: string;
+  tracking_number?: string | null;
+  status: string;
+  cod_amount: number;
+  shipping_fee: number;
+  delivery_method?: string | null;
+  notes?: string | null;
+  created_at: string;
+  updated_at: string;
+  shipped_at?: string | null;
+  delivered_at?: string | null;
+}
+
+export interface ShipmentDetail extends Shipment {
+  tracking_events?: TrackingEvent[];
+}
+
+export interface TrackingEvent {
+  id: number;
+  status: string;
+  description?: string | null;
+  location?: string | null;
+  courier_raw_status?: string | null;
+  recorded_at: string;
+}
+
+export interface Category {
+  id: number;
+  tenant_id: number;
+  parent_id?: number | null;
+  name: string;
+  slug: string;
+  sort_order: number;
+  is_active: boolean;
+  product_count?: number;
+  created_at: string;
 }
 
 export interface DashboardStats {
@@ -108,6 +176,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     const body = await res.json().catch(() => ({}));
     throw new Error((body as { detail?: string }).detail || `Request failed: ${res.status}`);
   }
+  if (res.status === 204) return undefined as T;
   return res.json();
 }
 
@@ -118,18 +187,26 @@ export const api = {
       body: JSON.stringify({ email, password }),
     }),
   me: () => request<User>("/auth/me"),
-  orders: (params: Record<string, string | number | undefined>) => {
+  orders: (params: Record<string, string | number | undefined> = {}) => {
     const qs = new URLSearchParams();
     for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== "") qs.set(k, String(v));
     return request<Page<Order>>(`/orders?${qs.toString()}`);
   },
   order: (id: number) => request<OrderDetail>(`/orders/${id}`),
   confirmOrder: (id: number) =>
-    request<{ order: Order; stock_after: number; message: string }>(`/orders/${id}/confirm`, {
+    request<{ order: Order; message: string }>(`/orders/${id}/confirm`, {
       method: "POST",
     }),
-  updateStatus: (id: number, status: string) =>
-    request<Order>(`/orders/${id}/status`, { method: "PATCH", body: JSON.stringify({ status }) }),
+  updateStatus: (id: number, status: string, note?: string) =>
+    request<Order>(`/orders/${id}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ status, note }),
+    }),
+  cancelOrder: (id: number, note: string) =>
+    request<Order>(`/orders/${id}/cancel`, {
+      method: "POST",
+      body: JSON.stringify({ note }),
+    }),
   customers: (params: Record<string, string | number | undefined> = {}) => {
     const qs = new URLSearchParams();
     for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== "") qs.set(k, String(v));
@@ -147,8 +224,39 @@ export const api = {
     for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== "") qs.set(k, String(v));
     return request<Product[]>(`/inventory?${qs.toString()}`);
   },
-  inventorySummary: () => request<{ total_products: number; total_stock: number; low_stock_count: number; out_of_stock_count: number }>(`/inventory/summary`),
+  inventorySummary: () =>
+    request<{ total_products: number; total_stock: number; low_stock_count: number; out_of_stock_count: number }>(
+      `/inventory/summary`
+    ),
   stats: () => request<DashboardStats>("/dashboard/stats"),
-  updateStock: (id: number, stock: number) =>
-    request<Product>(`/inventory/${id}/stock`, { method: "PATCH", body: JSON.stringify({ stock }) }),
+  updateStock: (id: number, quantity: number, reason: string = "manual") =>
+    request<Product>(`/inventory/${id}/stock`, {
+      method: "PATCH",
+      body: JSON.stringify({ quantity, reason }),
+    }),
+
+  // Shipments
+  shipments: (params: Record<string, string | number | undefined> = {}) => {
+    const qs = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== "") qs.set(k, String(v));
+    return request<Page<Shipment>>(`/shipments?${qs.toString()}`);
+  },
+  shipment: (id: number) => request<ShipmentDetail>(`/shipments/${id}`),
+  createShipment: (orderId: number, courierName: string = "yalidine") =>
+    request<ShipmentDetail>(`/shipments`, {
+      method: "POST",
+      body: JSON.stringify({ order_id: orderId, courier_name: courierName }),
+    }),
+  refreshShipment: (id: number) =>
+    request<ShipmentDetail>(`/shipments/${id}/refresh`, { method: "POST" }),
+  cancelShipment: (id: number) =>
+    request<void>(`/shipments/${id}`, { method: "DELETE" }),
+
+  // Categories
+  categories: (params: Record<string, string | number | undefined> = {}) => {
+    const qs = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== "") qs.set(k, String(v));
+    return request<Page<Category>>(`/categories?${qs.toString()}`);
+  },
+  categoryTree: () => request<Category[]>("/categories/tree"),
 };

@@ -7,8 +7,10 @@ import { clearTokens } from "@/lib/api";
 const navItems = [
   { href: "/", label: "Dashboard" },
   { href: "/orders", label: "Orders" },
+  { href: "/shipments", label: "Shipments" },
   { href: "/customers", label: "Customers" },
   { href: "/products", label: "Products" },
+  { href: "/categories", label: "Categories" },
   { href: "/inventory", label: "Inventory" },
 ];
 
@@ -54,7 +56,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex h-16 items-center justify-between border-b border-slate-200 bg-white px-6">
           <h1 className="text-lg font-semibold text-slate-800">AI Sales Operations</h1>
-          <span className="text-sm text-slate-500">n8n + Google Sheets · live sync</span>
+          <span className="text-sm text-slate-500">PostgreSQL · Multi-tenant SaaS</span>
         </header>
         <main className="flex-1 p-6">{children}</main>
       </div>
