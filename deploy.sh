@@ -8,6 +8,15 @@ err()  { echo -e "${RED}[ERROR]${NC} $1"; exit 1; }
 APP_DIR="/opt/ai-sales-dashboard"
 DOMAIN="eviraw.com"
 
+# Detect compose command: prefer "docker compose" v2, fallback to "docker-compose" v1
+if docker compose version >/dev/null 2>&1; then
+    DC="docker compose"
+elif command -v docker-compose >/dev/null 2>&1; then
+    DC="docker-compose"
+else
+    err "Neither 'docker compose' nor 'docker-compose' found."
+fi
+
 echo ""
 echo "============================================================"
 echo "  AI Sales Dashboard - Deployment for $DOMAIN"
@@ -18,12 +27,8 @@ echo ""
 # 1. Pre-flight
 if [ "$EUID" -ne 0 ]; then err "Run as root: sudo bash deploy.sh"; fi
 docker --version >/dev/null 2>&1 || err "Docker not installed"
-if ! docker compose version >/dev/null 2>&1; then
-    warn "Installing Docker Compose plugin..."
-    apt-get update -qq && apt-get install -y -qq docker-compose-plugin
-fi
 log "Docker: $(docker --version 2>&1 | head -1)"
-log "Compose: $(docker compose version 2>&1 | head -1)"
+log "Compose: $($DC version 2>&1 | head -1)"
 
 # Verify n8n untouched
 if docker ps --format '{{.Names}}' | grep -q "^n8n$"; then
@@ -32,9 +37,9 @@ fi
 
 # 2. Verify project
 if [ ! -f "$APP_DIR/docker-compose.yml" ]; then
-    err "Project not found at $APP_DIR. Upload first:\n  scp -r \"C:\\Users\\My PC\\OneDrive\\Documents\\Default Project\\ai-sales-dashboard\" root@2.28.10.88:/opt/ai-sales-dashboard"
+    err "Project not found at $APP_DIR. Run: git clone first."
 fi
-log "Project files found."
+log "Project files found at $APP_DIR"
 
 # 3. Generate all secrets
 SECRET_KEY=$(openssl rand -base64 48 | tr -d '\n')
@@ -84,13 +89,13 @@ log "Environment files written."
 
 # 5. Build and start
 cd "$APP_DIR"
-docker compose down 2>/dev/null || true
-docker compose up -d --build
+$DC down 2>/dev/null || true
+$DC up -d --build
 log "Containers building..."
 
 # 6. Wait for PostgreSQL
 for i in $(seq 1 30); do
-    docker compose exec -T db pg_isready -U dashboard >/dev/null 2>&1 && { log "PostgreSQL ready."; break; }
+    $DC exec -T db pg_isready -U dashboard >/dev/null 2>&1 && { log "PostgreSQL ready."; break; }
     sleep 2
 done
 
@@ -101,13 +106,13 @@ for i in $(seq 1 60); do
         log "Backend healthy."
         break
     fi
-    [ $i -eq 60 ] && warn "Backend not ready. Check: docker compose logs backend"
+    [ $i -eq 60 ] && warn "Backend not ready. Check: $DC logs backend"
     sleep 3
 done
 
 # 8. Migrations
 log "Running migrations..."
-docker compose exec -T backend alembic upgrade head 2>/dev/null || warn "Run manually: docker compose exec backend alembic upgrade head"
+$DC exec -T backend alembic upgrade head 2>/dev/null || warn "Run manually: $DC exec backend alembic upgrade head"
 
 # 9. Verify
 echo ""
@@ -184,14 +189,14 @@ echo "       META_APP_SECRET=..."
 echo "       META_VERIFY_TOKEN=..."
 echo "       META_PAGE_ACCESS_TOKEN=..."
 echo "       META_IG_ACCOUNT_ID=..."
-echo "     Then: cd $APP_DIR && docker compose restart backend"
+echo "     Then: cd $APP_DIR && $DC restart backend"
 echo ""
 echo "  4. Meta webhook URL:"
 echo "       https://api.eviraw.com/webhooks/meta"
 echo "       Verify Token: (the META_VERIFY_TOKEN above)"
 echo ""
 echo "  Commands:"
-echo "    Logs:    cd $APP_DIR && docker compose logs -f"
-echo "    Restart: cd $APP_DIR && docker compose restart"
-echo "    Stop:    cd $APP_DIR && docker compose down"
+echo "    Logs:    cd $APP_DIR && $DC logs -f"
+echo "    Restart: cd $APP_DIR && $DC restart"
+echo "    Stop:    cd $APP_DIR && $DC down"
 echo ""
