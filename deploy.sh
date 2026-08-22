@@ -49,6 +49,14 @@ ADMIN_EMAIL="admin@${DOMAIN}"
 log "Secrets generated."
 
 # 4. Write env files
+# Root .env for docker-compose variable interpolation (POSTGRES_PASSWORD etc.)
+cat > "$APP_DIR/.env" <<EOF
+POSTGRES_USER=dashboard
+POSTGRES_PASSWORD=${PG_PASS}
+POSTGRES_DB=dashboard
+EOF
+log "Root .env written for docker-compose."
+
 cat > "$APP_DIR/backend/.env.production" <<ENVEOF
 APP_ENV=production
 DEBUG=false
