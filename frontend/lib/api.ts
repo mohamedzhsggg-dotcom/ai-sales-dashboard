@@ -249,8 +249,13 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
   if (res.status === 401) {
     clearTokens();
-    if (typeof window !== "undefined") window.location.href = "/login";
-    throw new Error("Unauthorized");
+    const body = await res.json().catch(() => ({}));
+    const errBody = body as { error?: { message?: string; detail?: unknown }; detail?: string };
+    const msg = errBody.error?.message || (typeof errBody.error?.detail === "string" ? errBody.error.detail : null) || errBody.detail || "Invalid credentials";
+    if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
+      window.location.href = "/login";
+    }
+    throw new Error(msg);
   }
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
