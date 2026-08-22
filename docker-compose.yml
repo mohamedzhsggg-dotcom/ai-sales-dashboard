@@ -67,6 +67,8 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: https://api.eviraw.com
     container_name: ai-dashboard-frontend
     restart: unless-stopped
     env_file:
@@ -78,7 +80,7 @@ services:
     networks:
       - internal
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/"]
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/', r => { process.exit(r.statusCode === 200 ? 0 : 1) }).on('error', () => process.exit(1))"]
       interval: 30s
       timeout: 10s
       retries: 3

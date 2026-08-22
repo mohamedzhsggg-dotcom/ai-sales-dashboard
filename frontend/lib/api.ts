@@ -254,7 +254,9 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   }
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error((body as { detail?: string }).detail || `Request failed: ${res.status}`);
+    const errBody = body as { error?: { message?: string; detail?: unknown }; detail?: string };
+    const msg = errBody.error?.message || (typeof errBody.error?.detail === "string" ? errBody.error.detail : null) || errBody.detail || `Request failed: ${res.status}`;
+    throw new Error(msg);
   }
   if (res.status === 204) return undefined as T;
   return res.json();

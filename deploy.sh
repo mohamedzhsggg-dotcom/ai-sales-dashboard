@@ -155,6 +155,15 @@ echo ""
 echo "  2. Add to Caddyfile (/etc/caddy/Caddyfile):"
 echo ""
 cat <<'CADDY'
+eviraw.com {
+    reverse_proxy 127.0.0.1:3000
+    header {
+        X-Frame-Options "SAMEORIGIN"
+        X-Content-Type-Options "nosniff"
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    }
+}
+
 app.eviraw.com {
     reverse_proxy 127.0.0.1:3000
     header {
