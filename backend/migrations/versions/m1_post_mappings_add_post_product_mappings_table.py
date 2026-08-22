@@ -12,7 +12,7 @@ from sqlalchemy.dialects import postgresql
 
 
 revision: str = 'm1_post_mappings'
-down_revision: Union[str, None] = 'e8f677f4ce06'
+down_revision: Union[str, None] = 'm0_core_schema'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
