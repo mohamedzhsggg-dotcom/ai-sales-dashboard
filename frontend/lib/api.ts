@@ -1,6 +1,14 @@
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 const API_PREFIX = "/api/v1";
 
+if (typeof window !== "undefined" && API_BASE === "http://localhost:8000" && window.location.hostname !== "localhost") {
+  console.error(
+    "FATAL: NEXT_PUBLIC_API_URL is http://localhost:8000 but the app is running on",
+    window.location.hostname,
+    "— API calls will fail. Rebuild the frontend with NEXT_PUBLIC_API_URL set correctly."
+  );
+}
+
 export interface User {
   id: number;
   email: string;
